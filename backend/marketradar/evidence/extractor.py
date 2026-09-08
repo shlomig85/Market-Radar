@@ -307,10 +307,18 @@ def extract(
     results: list[ExtractedEvidence] = []
 
     for start, end, sentence in split_sentences(text):
-        if not sentence or is_stability_statement(sentence):
+        if not sentence:
             continue
-        speculative = is_forward_looking(sentence)
-        lowered = sentence.lower()
+        # Real filings are hard-wrapped, so a sentence routinely contains newlines. Every
+        # rule uses `.{0,N}` spans, and `.` excludes newlines — matching the raw sentence
+        # silently dropped any claim whose span crossed a line break. Matching is done on a
+        # whitespace-collapsed copy; the original is kept for the excerpt and its offsets,
+        # which must still point at the real document.
+        matchable = " ".join(sentence.split())
+        if is_stability_statement(matchable):
+            continue
+        speculative = is_forward_looking(matchable)
+        lowered = matchable.lower()
         entity_hint = None
         for surface, key in entity_lexicon.items():
             if surface.lower() in lowered:
@@ -321,7 +329,7 @@ def extract(
         for rule in RULES:
             if len(seen_types) >= MAX_CLAIMS_PER_SENTENCE:
                 break
-            if rule.event_type in seen_types or not rule.pattern.search(sentence):
+            if rule.event_type in seen_types or not rule.pattern.search(matchable):
                 continue
             seen_types.add(rule.event_type)
             results.append(
@@ -339,7 +347,7 @@ def extract(
                     direction=Direction.NEUTRAL if speculative else rule.direction,
                     magnitude=0.0 if speculative else rule.magnitude,
                     confidence=round(rule.confidence * 0.7, 3) if speculative else rule.confidence,
-                    subject_key=detect_subject(sentence, subject_hints),
+                    subject_key=detect_subject(matchable, subject_hints),
                     entity_hint=entity_hint,
                     rule_key=rule.rule_key,
                     is_forward_looking=speculative,
