@@ -25,8 +25,28 @@ if [[ "${1:-}" == "--native" ]]; then
   exit 0
 fi
 
+# Two distinct failures that a single `docker info` check would conflate. Reporting
+# "Docker is not running" when Docker Desktop is running and only the CLI is off PATH
+# sends people to fix the wrong thing.
+if ! command -v docker >/dev/null 2>&1; then
+  # printf is a shell builtin: this message must survive the very PATH breakage it reports.
+  printf '%s\n' >&2 \
+    "The 'docker' command is not on your PATH." \
+    "" \
+    "  * If Docker Desktop is already installed and running, open a NEW terminal window" \
+    "    and try again. Its installer updates your shell profile, and windows opened" \
+    "    beforehand do not see that change." \
+    "  * If it is not installed: https://www.docker.com/products/docker-desktop/" \
+    "  * To run without Docker at all: ./scripts/start.sh --native"
+  exit 1
+fi
+
 if ! docker info >/dev/null 2>&1; then
-  echo "Docker is not running. Start Docker Desktop, or use: ./scripts/start.sh --native" >&2
+  printf '%s\n' >&2 \
+    "The 'docker' command works, but its engine is not reachable." \
+    "" \
+    "  * Open Docker Desktop and wait until it reports 'Engine running'." \
+    "  * To run without Docker at all: ./scripts/start.sh --native"
   exit 1
 fi
 
