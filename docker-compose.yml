@@ -15,7 +15,9 @@ services:
       POSTGRES_PASSWORD: marketradar
       POSTGRES_DB: marketradar
     ports:
-      - "5432:5432"
+      # Overridable: a second checkout of this repo would otherwise fail to start with
+      # "port is already allocated" against a stack that is already running.
+      - "${MARKETRADAR_POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - marketradar-pgdata:/var/lib/postgresql/data
       - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
@@ -61,7 +63,7 @@ services:
       MARKETRADAR_CORS_ORIGINS: http://localhost:3000
       MARKETRADAR_LOG_LEVEL: INFO
     ports:
-      - "8000:8000"
+      - "${MARKETRADAR_API_HOST_PORT:-8000}:8000"
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -82,7 +84,7 @@ services:
       # Server-side fetch across the compose network; the browser only ever talks to :3000.
       MARKETRADAR_API_URL: http://api:8000
     ports:
-      - "3000:3000"
+      - "${MARKETRADAR_WEB_HOST_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
