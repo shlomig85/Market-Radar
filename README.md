@@ -84,8 +84,12 @@ To run a one-off command without installing anything, use the container, which b
 right Python:
 
 ```bash
-docker compose run --rm api python -m marketradar.cli <command>
+docker compose --profile cli run --rm cli python -m marketradar.cli <command>
 ```
+
+The `cli` service depends only on the database, so a one-off command never waits on — or is
+blocked by — the demo bring-up, and it publishes no host ports, so it cannot collide with
+another running stack.
 
 ```bash
 ./scripts/start.sh --native
@@ -111,7 +115,8 @@ make web          # http://localhost:3000
 To see the knowledge graph and what each edge rests on:
 
 ```bash
-cd backend && python -m marketradar.cli graph --limit 40
+make graph                          # locally
+make docker-cli cmd="graph"         # or against the Docker stack's database
 ```
 
 Every edge prints with the sentence that asserts it and the URL of the document it came from.
@@ -126,6 +131,9 @@ An edge that was seeded by hand rather than read out of a document prints
 | "No themes have formed yet" | the pipeline has not run — `make pipeline`. This is also the honest answer whenever nothing is accelerating |
 | Theme page shows no research trace | `make research` has not run for that theme. The panel reflects the database rather than rendering a placeholder |
 | Port 3000 or 8000 already in use | change the host side of the port mapping in `docker-compose.yml` |
+| `Bind for 0.0.0.0:5432 failed: port is already allocated` | another Market Radar stack (or a local Postgres) already holds the port. Either stop it — `docker compose ls` names the running projects — or give this stack its own ports: `export MARKETRADAR_POSTGRES_HOST_PORT=5433 MARKETRADAR_API_HOST_PORT=8001 MARKETRADAR_WEB_HOST_PORT=3001` |
+| `service "bootstrap" didn't complete successfully: exit 1` | the demo bring-up failed. It now prints `bootstrap FAILED during: <step>` — read that line first: `docker compose logs bootstrap`. A one-off CLI command does not need bootstrap at all; use the `cli` service below |
+| A one-off command drags in the whole demo bring-up | `docker compose run --rm api ...` depends on `bootstrap`. Use `docker compose --profile cli run --rm cli ...` instead — it depends only on the database and publishes no host ports |
 
 ---
 

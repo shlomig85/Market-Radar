@@ -8,8 +8,8 @@ PY := python3
 
 .DEFAULT_GOAL := help
 .PHONY: help up down logs setup db-up db-down migrate migration seed pipeline research show \
-        providers stats reset api web test test-unit test-integration test-e2e lint typecheck \
-        check all
+        providers stats graph reset api web test test-unit test-integration test-e2e \
+        lint typecheck check all docker-cli
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -60,6 +60,12 @@ providers: ## Show provider health and data modes
 
 stats: ## Row counts across the intelligence tables
 	cd $(BACKEND) && $(PY) -m marketradar.cli stats
+
+graph: ## Show knowledge-graph edges and the evidence each one rests on
+	cd $(BACKEND) && $(PY) -m marketradar.cli graph --limit $(or $(limit),40)
+
+docker-cli: ## Run a CLI command in Docker against the stack's database: make docker-cli cmd="graph"
+	docker compose --profile cli run --rm cli python -m marketradar.cli $(or $(cmd),stats)
 
 reset: ## Drop, recreate and reseed the development database
 	cd $(BACKEND) && $(PY) -m marketradar.cli reset --yes

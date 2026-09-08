@@ -21,7 +21,7 @@ if [[ "${1:-}" == "--native" ]]; then
       "    or simply use the container path, which bundles the right version:" \
       "        ./scripts/start.sh" \
       "  * To run a one-off command in the container instead:" \
-      "        docker compose run --rm api python -m marketradar.cli <command>"
+      "        docker compose --profile cli run --rm cli python -m marketradar.cli <command>"
     exit 1
   fi
 

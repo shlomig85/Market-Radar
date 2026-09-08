@@ -190,8 +190,33 @@ Then:
 
 ```bash
 python -m marketradar.cli sync-companies   # real issuers, data_mode=LIVE
-python -m marketradar.cli pipeline         # real filings -> evidence -> signals
+python -m marketradar.cli pipeline         # real filings -> evidence -> graph -> signals
+python -m marketradar.cli graph            # the edges, and the sentence each one rests on
 python -m marketradar.cli show <theme-slug>
+```
+
+### In Docker
+
+Use the `cli` service, never `api`, for one-off commands. `api` depends on `bootstrap`
+completing, so a failed demo bring-up blocks operator commands that have nothing to do with
+it; `cli` depends only on the database and publishes no host ports, so it cannot collide
+with a second stack either.
+
+```bash
+# If another stack (or a local Postgres) already holds these ports:
+export MARKETRADAR_POSTGRES_HOST_PORT=5433
+export MARKETRADAR_API_HOST_PORT=8001
+export MARKETRADAR_WEB_HOST_PORT=3001
+
+docker compose up -d postgres
+docker compose --profile cli run --rm cli alembic upgrade head
+docker compose --profile cli run --rm \
+  -e MARKETRADAR_COMPANY_PROVIDER=sec \
+  -e MARKETRADAR_FILINGS_PROVIDER=sec_edgar \
+  -e MARKETRADAR_SEC_USER_AGENT="Market Radar your@email.com" \
+  -e MARKETRADAR_SEC_CIKS=320193,789019,1045810 \
+  cli python -m marketradar.cli pipeline
+docker compose --profile cli run --rm cli python -m marketradar.cli graph --limit 40
 ```
 
 ### Stated limitation: watchlist, not discovery
