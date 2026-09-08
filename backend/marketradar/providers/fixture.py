@@ -116,7 +116,14 @@ class _FixtureBase:
             origin_ref=raw.get("origin_ref"),
             subject_hints=tuple(raw.get("subject_hints", ())),
             data_mode=DataMode(raw["data_mode"]),
-            payload={"corpus_version": self._corpus["corpus_version"]},
+            payload={
+                "corpus_version": self._corpus["corpus_version"],
+                # Present only on documents with an identified filer. Relationship
+                # extraction is first-person ("our suppliers include ..."), so it needs to
+                # know who "we" is; a document without this yields no edges rather than
+                # edges attributed to a guess.
+                **({"filer_key": raw["filer_key"]} if raw.get("filer_key") else {}),
+            },
         )
 
     # -- protocol -------------------------------------------------------

@@ -2,8 +2,8 @@
 
 Runs the deterministic half of the system end to end:
 
-    ingest -> cluster -> extract -> events -> signals -> trends -> themes
-           -> exposure -> scores
+    ingest -> cluster -> extract -> relationships -> events -> signals -> trends
+           -> themes -> exposure -> scores
 
 Each stage is idempotent, so the whole pipeline is safe to re-run. The orchestrator returns
 a structured result rather than printing, so the CLI, the tests and (later) a worker can all
@@ -30,6 +30,10 @@ from marketradar.ingestion.pipeline import (
     ingest_documents,
     rebuild_clusters,
     upsert_sources,
+)
+from marketradar.ingestion.relationships import (
+    RelationshipReport,
+    extract_entity_relationships,
 )
 from marketradar.logging import get_logger
 from marketradar.mapping.exposure import compute_exposures
@@ -58,6 +62,7 @@ class PipelineResult:
     exposures_created: int = 0
     scores_created: int = 0
     companies: CompanySyncReport = field(default_factory=CompanySyncReport)
+    relationships: RelationshipReport = field(default_factory=RelationshipReport)
     provider_modes: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -118,6 +123,12 @@ def run_pipeline(
     rebuild_clusters(session, settings)
     result.ingestion = result.ingestion.merge(build_events(session, as_of=as_of))
 
+    # --- 2b. value-chain edges ------------------------------------------
+    # Runs after evidence extraction (the entity resolver is built from the same company
+    # universe) and before exposure mapping, which traverses the edges this produces. Edges
+    # read out of filings carry the sentence that asserts them; hand-entered edges do not.
+    result.relationships = extract_entity_relationships(session)
+
     # --- 3. signals ----------------------------------------------------
     engine = SignalEngine(session, as_of=as_of)
     for definition in SIGNAL_DEFINITIONS:
@@ -153,6 +164,7 @@ def run_pipeline(
         "pipeline.complete",
         documents_created=result.ingestion.documents_created,
         events_created=result.ingestion.events_created,
+        edges_created=result.relationships.edges_created,
         themes=result.themes,
     )
     return result

@@ -69,7 +69,7 @@ def pipeline(
         None, help="ISO timestamp to run as-of. Defaults to now (UTC)."
     ),
 ) -> None:
-    """Run ingest -> cluster -> evidence -> events -> signals -> trends -> themes -> scores."""
+    """Run ingest -> cluster -> evidence -> graph -> events -> signals -> trends -> scores."""
     _bootstrap()
     moment = (
         datetime.fromisoformat(as_of).replace(tzinfo=UTC)
@@ -84,6 +84,11 @@ def pipeline(
                f"skipped={result.ingestion.documents_skipped}")
     typer.echo(f"Clusters:   {result.ingestion.clusters_created} created")
     typer.echo(f"Evidence:   {result.ingestion.evidence_created} created")
+    typer.echo(
+        f"Graph:      {result.relationships.edges_created} edges created, "
+        f"{result.relationships.edges_reinforced} reinforced "
+        f"({result.relationships.evidence_created} relationship citations)"
+    )
     typer.echo(f"Events:     {result.ingestion.events_created} created")
     typer.echo(f"Signals:    {result.signals_computed} computed")
     typer.echo(f"Trends:     {result.trends_computed} computed")
@@ -323,6 +328,57 @@ def sync_companies_command() -> None:
         f"Companies: {report.created} created, {report.updated} updated, "
         f"{report.securities_created} securities ({report.mode.value})."
     )
+
+
+@app.command()
+def graph(
+    company: str = typer.Option(None, help="Only edges touching this company key."),
+    limit: int = typer.Option(40, help="Maximum edges to print."),
+) -> None:
+    """Show knowledge-graph edges and the evidence each one rests on.
+
+    An edge with no citation is a claim nobody can check, so this prints the citation column
+    unconditionally: ``(no evidence — hand-entered)`` is the honest rendering of a seeded
+    edge, and it should be visibly rarer over time as real filings are ingested.
+    """
+    _bootstrap()
+    from marketradar.domain.models import EntityRelationship
+
+    with session_scope() as session:
+        query = select(EntityRelationship).order_by(
+            EntityRelationship.source_entity_key, EntityRelationship.target_entity_key
+        )
+        if company:
+            query = query.where(
+                (EntityRelationship.source_entity_key == company)
+                | (EntityRelationship.target_entity_key == company)
+            )
+        edges = session.scalars(query.limit(limit)).all()
+        if not edges:
+            typer.echo("No edges." if not company else f"No edges touching {company}.")
+            return
+
+        cited = 0
+        for edge in edges:
+            typer.echo(
+                f"{edge.source_entity_key} --[{edge.relationship_type.value} "
+                f"w={edge.weight:.2f} c={edge.confidence:.2f} {edge.data_mode.value}]--> "
+                f"{edge.target_entity_key}"
+            )
+            evidence = (
+                session.get(EvidenceItem, edge.evidence_id) if edge.evidence_id else None
+            )
+            if evidence is None:
+                typer.echo("    (no evidence — hand-entered)")
+                continue
+            cited += 1
+            document = session.get(SourceDocument, evidence.document_id)
+            excerpt = " ".join(evidence.excerpt.split())
+            typer.echo(f'    "{excerpt[:160]}"')
+            if document is not None:
+                typer.echo(f"    {document.url}")
+
+        typer.echo(f"\n{cited}/{len(edges)} edges shown carry evidence.")
 
 
 if __name__ == "__main__":

@@ -268,3 +268,36 @@ It is a configuration value (`MARKETRADAR_DUPLICATE_SIMILARITY_THRESHOLD`), and
 `docs/evaluation-plan.md` schedules re-validation against labelled real documents before it
 can be trusted. Longer term, embedding similarity should replace shingles for rewrites that
 share meaning but little vocabulary.
+
+---
+
+## ADR-015 — Value-chain edges are read out of filings, and an edge is only as good as its citation
+
+**Decision.** `entity_relationships` rows are produced by a rule extractor over filing text
+(`marketradar/entities/relationships.py`), each carrying an `evidence_id` that points at the exact
+sentence asserting it. When an existing hand-entered edge is first cited, its confidence **drops to
+the confidence of that citation** rather than keeping its seeded prior.
+
+**Alternatives.** (a) Keep curating edges by hand, which is how the graph started. (b) Extract edges
+but keep the higher of the seeded and evidenced confidence. (c) Infer edges statistically from
+co-occurrence of company names in the same document.
+
+**Why.** The Cycle-1 audit's C5 finding was that every edge had been typed in by a human and not one
+carried evidence. A traversal over such a graph produces exposure paths that look like findings and
+are actually assumptions — the failure mode this product exists to avoid. Extraction fixes the
+provenance; the confidence rule fixes the honesty. A hand-entered 0.95 backed by a sentence worth
+0.78 is 0.78, and presenting it as 0.95 would launder a guess into a measurement. Co-occurrence was
+rejected outright: two companies named in one document are related far less often than not, and the
+resulting edges would carry a document reference that does not actually assert the relationship.
+
+**Cost.** Recall. Measured on held-out filing phrasings the rules were not fitted to:
+**precision 1.00, recall 0.29** (`tests/unit/test_relationship_extraction.py`). The rule set reads a
+closed list of disclosure phrasings and is silent on the rest, so the graph it builds is sparse and
+skewed toward companies that write plainly. That trade is deliberate — a missing edge costs reach, a
+wrong edge propagates through every traversal that crosses it and is indistinguishable from a right
+one — but it is the strongest argument for an LLM extractor behind the same interface, scored on the
+same held-out set.
+
+**Also.** The extractor is first-person (`"our suppliers include ..."`), so it needs to know who "we"
+is. Documents with no identified filer — news articles, industry reports — yield no edges rather than
+edges attributed to a guess.

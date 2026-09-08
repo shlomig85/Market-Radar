@@ -215,6 +215,32 @@ being hardcoded. The AI-memory chain (AI infrastructure → server deployment �
 DRAM/HBM/NAND → manufacturers → equipment → upstream) is **seed data expressed in that generic
 model**, used as the first validation case — not a special code path.
 
+### 8.1 Where the edges come from
+
+Edges are **read out of filings**, not typed in (ADR-015). `entities/relationships.py` matches a
+closed set of first-person disclosure phrasings — "our principal suppliers include", "X accounted
+for n% of our revenue", "we compete primarily with" — and captures a *party window*, the span of
+text that should name the counterparty. The entity resolver runs on that window only, never on the
+whole sentence, which is what keeps precision up in a filing that names dozens of companies.
+`ingestion/relationships.py` then writes one `evidence_items` row for the asserting sentence and
+one `entity_relationships` row pointing at it.
+
+Four properties are load-bearing:
+
+* **No filer, no edges.** The rules are first-person, so a document with no identified filer (a news
+  article, an industry report) produces nothing rather than edges attributed to a guess. SEC
+  documents carry the filer's CIK; the company provider keys issuers as `sec-<padded CIK>`.
+* **No dangling endpoints.** A counterparty that does not resolve to a known company is dropped, as
+  is an ambiguous resolution.
+* **An edge is only as good as its citation.** When a seeded edge is first cited, its confidence
+  falls to the confidence of that sentence.
+* **A relationship is not an event.** Relationship evidence carries no `event_type`, so it can never
+  reach the signal engine — a standing fact about who supplies whom is not an observed change.
+
+Measured on held-out filing phrasings the rules were not fitted to: **precision 1.00, recall 0.29**.
+The graph is therefore sparse and honest rather than complete; `marketradar graph` prints every edge
+with its citation, and `(no evidence — hand-entered)` where there is none.
+
 ---
 
 ## 9. Agents

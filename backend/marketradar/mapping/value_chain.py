@@ -100,6 +100,9 @@ _TRAVERSALS: dict[tuple[RelationshipType, str], tuple[ExposureRole, float]] = {
     (RelationshipType.PRODUCES, "reverse"): (ExposureRole.DIRECT_BENEFICIARY, 1.0),
     # a company that supplies that producer
     (RelationshipType.SUPPLIES, "reverse"): (ExposureRole.SUPPLIER, 0.8),
+    # "we depend on X" states the same linkage from the buyer's side: walking forward off
+    # the dependent company reaches the input it depends on, which is its supplier.
+    (RelationshipType.DEPENDS_ON, "forward"): (ExposureRole.SUPPLIER, 0.8),
     # a company that buys from that producer: exposed, but rising input cost cuts both ways
     (RelationshipType.BUYS_FROM, "reverse"): (ExposureRole.CUSTOMER, 0.5),
     # competitors of a beneficiary share the market backdrop

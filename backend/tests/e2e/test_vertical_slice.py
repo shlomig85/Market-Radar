@@ -17,6 +17,7 @@ from marketradar.demo.loader import seed_demo_universe
 from marketradar.domain.enums import (
     ClaimType,
     DataMode,
+    EntityType,
     FindingStance,
     RunStatus,
     TrendMaturity,
@@ -24,6 +25,7 @@ from marketradar.domain.enums import (
 from marketradar.domain.models import (
     AgentRun,
     Company,
+    EntityRelationship,
     Event,
     EvidenceCluster,
     EvidenceItem,
@@ -43,6 +45,8 @@ from marketradar.domain.models import (
     ThemeCompanyExposure,
     Trend,
 )
+from marketradar.entities.relationships import RELATIONSHIP_EXTRACTOR_VERSION
+from marketradar.evidence.extractor import EXTRACTOR_VERSION
 from marketradar.orchestration import run_pipeline
 from marketradar.providers import build_default_registry
 from marketradar.research.loop import run_research
@@ -104,11 +108,32 @@ def test_amplified_evidence_produces_a_single_event(session, pipeline):
 
 def test_forward_looking_statements_are_evidence_but_never_events(session, pipeline):
     speculative = session.scalars(
-        select(EvidenceItem).where(EvidenceItem.event_type.is_(None))
+        select(EvidenceItem).where(
+            EvidenceItem.event_type.is_(None),
+            # Relationship disclosures also carry no event type — they are standing facts,
+            # not observed changes — but they are a different kind of claim and have no
+            # magnitude at all. This test is about projections and historical analogies.
+            EvidenceItem.extractor_version == EXTRACTOR_VERSION,
+        )
     ).all()
     assert speculative, "the corpus contains risk arguments and historical analogies"
     for item in speculative:
         assert item.magnitude == 0.0
+
+
+def test_relationship_disclosures_are_evidence_but_never_events(session, pipeline):
+    """The other class of event-less evidence: who supplies whom (audit C5)."""
+    disclosures = session.scalars(
+        select(EvidenceItem).where(
+            EvidenceItem.extractor_version == RELATIONSHIP_EXTRACTOR_VERSION
+        )
+    ).all()
+    assert disclosures, "the corpus contains filings that name suppliers and customers"
+    for item in disclosures:
+        assert item.event_type is None
+        # A standing relationship has no magnitude; recording 0.0 would imply a measured
+        # change of size zero, which is a different statement.
+        assert item.magnitude is None
 
 
 # ------------------------------------------------------- event -> signal
@@ -205,6 +230,41 @@ def test_confidence_and_opportunity_are_reported_separately(session, pipeline):
 
 
 # ------------------------------------------------------ theme -> company
+def test_the_value_chain_is_read_from_documents_not_typed_in(session, pipeline):
+    """Audit C5: every graph edge was hand-entered and not one carried evidence.
+
+    The bar is not "some edges have citations" but that the company-to-company edges the
+    traversal actually crosses are, in the main, traceable to a sentence in a document.
+    A hand-entered edge is a claim no reader can check.
+    """
+    edges = session.scalars(select(EntityRelationship)).all()
+    company_edges = [
+        edge
+        for edge in edges
+        if edge.source_entity_type is EntityType.COMPANY
+        and edge.target_entity_type is EntityType.COMPANY
+    ]
+    assert company_edges
+    cited = [edge for edge in company_edges if edge.evidence_id is not None]
+    # A ratchet, not a ceiling. Raise it as coverage improves; never lower it to pass.
+    assert len(cited) / len(company_edges) >= 0.75, (
+        f"only {len(cited)}/{len(company_edges)} company edges carry evidence"
+    )
+
+    for edge in cited:
+        evidence = session.get(EvidenceItem, edge.evidence_id)
+        assert evidence is not None
+        document = session.get(SourceDocument, evidence.document_id)
+        assert document is not None
+        # The citation must resolve to the exact span it claims, in the real document.
+        assert (
+            document.body_text[evidence.excerpt_start : evidence.excerpt_end].strip()
+            == evidence.excerpt
+        )
+        # An edge is never more confident than the sentence holding it up.
+        assert edge.confidence <= evidence.confidence + 1e-9
+
+
 def test_the_value_chain_reaches_first_second_and_third_order_companies(session, pipeline):
     theme = session.scalar(select(Theme).where(Theme.slug == THEME_SLUG))
     exposures = session.scalars(

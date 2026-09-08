@@ -99,7 +99,7 @@ make setup        # install backend + frontend dependencies
 make db-up        # start PostgreSQL (skip if you already run a local cluster)
 make migrate      # apply migrations
 make seed         # load the fictional DEMO reference universe
-make pipeline     # ingest -> events -> signals -> trends -> themes -> scores
+make pipeline     # ingest -> events -> graph -> signals -> trends -> themes -> scores
 make research     # plan -> search -> findings -> report
 make api          # http://localhost:8000  (docs at /docs)
 make web          # http://localhost:3000
@@ -107,6 +107,16 @@ make web          # http://localhost:3000
 
 `make all` runs the whole chain from an empty database to a rendered report.
 `make help` lists every target.
+
+To see the knowledge graph and what each edge rests on:
+
+```bash
+cd backend && python -m marketradar.cli graph --limit 40
+```
+
+Every edge prints with the sentence that asserts it and the URL of the document it came from.
+An edge that was seeded by hand rather than read out of a document prints
+`(no evidence — hand-entered)` — that label is the point, not an oversight.
 
 ### Troubleshooting
 
@@ -122,7 +132,7 @@ make web          # http://localhost:3000
 ## Testing
 
 ```bash
-make test              # 138 tests
+make test              # 224 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -163,7 +173,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 14 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 15 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
 | `docs/research-pipeline.md` | the deterministic pipeline and the research loop |

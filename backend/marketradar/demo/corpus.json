@@ -473,7 +473,8 @@
         "memory",
         "hbm"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "nbmx"
     },
     {
       "external_id": "base-004",
@@ -531,7 +532,8 @@
         "memory",
         "ai"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "helx"
     },
     {
       "external_id": "base-008",
@@ -603,7 +605,8 @@
         "hbm",
         "ai"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "nbmx"
     },
     {
       "external_id": "obs-002",
@@ -680,7 +683,8 @@
         "memory",
         "ai"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "helx"
     },
     {
       "external_id": "obs-007",
@@ -723,7 +727,8 @@
         "memory",
         "ai"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "atlq"
     },
     {
       "external_id": "obs-010",
@@ -738,7 +743,8 @@
         "memory",
         "equipment"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "vrdn"
     },
     {
       "external_id": "obs-011",
@@ -768,7 +774,8 @@
       "subject_hints": [
         "ai"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "orbc"
     },
     {
       "external_id": "obs-013",
@@ -783,7 +790,8 @@
         "memory",
         "hbm"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "nbmx"
     },
     {
       "external_id": "obs-014",
@@ -855,7 +863,8 @@
         "memory",
         "nand"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "crsd"
     },
     {
       "external_id": "base-012",
@@ -897,7 +906,8 @@
       "subject_hints": [
         "memory"
       ],
-      "data_mode": "DEMO"
+      "data_mode": "DEMO",
+      "filer_key": "nbmx"
     },
     {
       "external_id": "base-015",
@@ -924,6 +934,62 @@
       "origin_ref": null,
       "subject_hints": [
         "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "graph-001",
+      "source_key": "demo_regulatory_filings",
+      "filer_key": "nbmx",
+      "url": "https://filings.demo.invalid/nbmx/2026/annual-report",
+      "title": "Northbridge Memory Corp annual report — Item 1, Business",
+      "body_text": "We design and manufacture high-bandwidth memory and DRAM for data centre customers. Our principal suppliers include Veridian Litho Systems. We purchase deposition and lithography tools from Veridian Litho Systems. Our significant customers include Atlas Quanta Systems and Orbital Cloud Holdings. We compete primarily with Helix Semiconductor Memory. Wafer test and burn-in are outsourced to Plenum Test Systems.",
+      "published_at": "2026-04-14T12:00:00+00:00",
+      "event_at": "2026-04-14T12:00:00+00:00",
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "graph-002",
+      "source_key": "demo_regulatory_filings",
+      "filer_key": "helx",
+      "url": "https://filings.demo.invalid/helx/2026/annual-report",
+      "title": "Helix Semiconductor Memory annual report — Item 1, Business",
+      "body_text": "We design and manufacture DRAM and are ramping a high-bandwidth memory programme. We depend substantially on Veridian Litho Systems for process tooling. Atlas Quanta Systems accounted for approximately 16% of our total net revenue in the year. We compete directly with Northbridge Memory Corp and Crossroad Storage Media.",
+      "published_at": "2026-04-21T12:00:00+00:00",
+      "event_at": "2026-04-21T12:00:00+00:00",
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "graph-003",
+      "source_key": "demo_regulatory_filings",
+      "filer_key": "vrdn",
+      "url": "https://filings.demo.invalid/vrdn/2026/annual-report",
+      "title": "Veridian Litho Systems annual report — Item 1, Business",
+      "body_text": "We supply deposition, lithography and packaging equipment to Northbridge Memory Corp and Helix Semiconductor Memory. Our largest customers are memory manufacturers. We purchase precision optics from Keystone Materials Group. We no longer supply legacy tools to Crossroad Storage Media.",
+      "published_at": "2026-04-28T12:00:00+00:00",
+      "event_at": "2026-04-28T12:00:00+00:00",
+      "subject_hints": [
+        "semiconductor_equipment"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "graph-004",
+      "source_key": "demo_regulatory_filings",
+      "filer_key": "atlq",
+      "url": "https://filings.demo.invalid/atlq/2026/annual-report",
+      "title": "Atlas Quanta Systems annual report — Item 1, Business",
+      "body_text": "We design and market AI servers for cloud operators. We purchase high-bandwidth memory from Northbridge Memory Corp and Helix Semiconductor Memory. Our significant customers include Orbital Cloud Holdings. We rely heavily on Northbridge Memory Corp for accelerator memory supply.",
+      "published_at": "2026-05-05T12:00:00+00:00",
+      "event_at": "2026-05-05T12:00:00+00:00",
+      "subject_hints": [
+        "ai_infrastructure"
       ],
       "data_mode": "DEMO"
     }

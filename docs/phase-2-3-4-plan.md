@@ -124,8 +124,9 @@ acceptance criteria.
 3. SEC filings provider → submissions **+ document text**, rate limited
 4. Entity resolution service, replacing substring matching
 5. Pipeline wiring, `LIVE` mode propagation, graceful degradation
-6. Live verification on an unrestricted machine
-7. Value-chain relationships extracted from filings with evidence (audit C5)
+6. Live verification on an unrestricted machine — **done, see §11**
+7. Value-chain relationships extracted from filings with evidence (audit C5) — **done**
+8. Subject discovery, replacing the hardcoded three-subject vocabulary (audit C6) — open
 
 ## 7. Testing strategy
 
@@ -157,9 +158,10 @@ Phase 2 is complete only when **all** hold:
 - No document published after the as-of instant enters an as-of run (already enforced)
 - Entity resolution produces zero attributions for the audit's false-positive cases, with a
   measured false-attribution rate on a labelled sample
-- At least one signal computed from real evidence about a real company
-- The live path executed and observed on a real network, with output inspected
-- `health()` reports `LIVE` only after that observation
+- At least one signal computed from real evidence about a real company — **open**: the live
+  path is verified end to end, but a full `pipeline` run against SEC has not yet been observed
+- The live path executed and observed on a real network, with output inspected — **done (§11)**
+- `health()` reports `LIVE` only after that observation — **done**
 
 
 ---
@@ -206,3 +208,43 @@ Measured on a synthetic 10,000-issuer universe: resolver construction 0.66 s, re
 ~150 ms per 2,400-word document. Ingesting 1,000 filings therefore spends roughly 2.5
 minutes in entity resolution alone. Acceptable now, and the obvious first target if
 throughput becomes a constraint.
+
+
+---
+
+## 11. Live verification result (observed 2026-09-08)
+
+Run by the operator on macOS, in the API container, against the real SEC endpoints. Reported
+verbatim rather than summarised, because this is the observation that permits any `LIVE` claim:
+
+```
+ok NEWS_SEARCH   DEMO          verified=True  Synthetic development corpus v1.1.0.
+ok FILINGS       LIVE          verified=True  SEC EDGAR submissions API reachable.
+!! MARKET_DATA   UNAVAILABLE   verified=True  No market-data provider is configured.
+ok COMPANY_DATA  LIVE          verified=True  SEC company file reachable; 8010 registrants.
+
+Company universe: 8010 issuers
+  NVDA  NVIDIA CORP      cik=0001045810 mode=LIVE
+  AAPL  Apple Inc.       cik=0000320193 mode=LIVE
+  ...
+Filings fetched: 3 (mode LIVE)
+  2026-09-03 NVIDIA CORP — 8-K      910 words   event_at=2026-09-02
+  2026-09-02 MICROSOFT CORP — 8-K   508 words   event_at=2026-09-02
+  2026-08-26 NVIDIA CORP — 10-Q   16252 words   event_at=2026-07-26
+```
+
+What this establishes:
+
+- **The company universe is real.** 8,010 exchange-listed registrants from
+  `company_tickers_exchange.json`, keyed by CIK, share classes collapsed.
+- **Filing text is real and fetched, not stubbed.** 910 / 508 / 16,252 words. A filing whose
+  body cannot be retrieved is dropped rather than stored as a metadata stub.
+- **The temporal split is real.** The 10-Q was *filed* 2026-08-26 for a period ending
+  2026-07-26. `published_at` and `event_at` differ by 31 days on a real document, which is
+  precisely the gap that fabricates urgency when the two are collapsed.
+- **Rate limiting and the SSRF allowlist held** across the eight requests shown.
+- **Market data remains honestly `UNAVAILABLE`.** Nothing was invented to fill it.
+
+What this does **not** establish: a full `pipeline` run against SEC (evidence, events and
+signals from real filings) has not yet been observed, and the extractor's recall on real
+filing prose is still unmeasured. Both are named in §8 as accepted open risks.
