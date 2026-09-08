@@ -6,11 +6,12 @@ committed; ``.env.example`` documents the full set of variables.
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, PostgresDsn, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -41,7 +42,9 @@ class Settings(BaseSettings):
     # --- api -------------------------------------------------------------
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
 
     # --- providers -------------------------------------------------------
     # A provider with no credentials configured resolves to UNAVAILABLE. It is never
@@ -61,7 +64,7 @@ class Settings(BaseSettings):
     news_api_key: str = ""
     market_data_api_key: str = ""
 
-    http_allowed_hosts: list[str] = Field(
+    http_allowed_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["data.sec.gov", "www.sec.gov"],
         description="SSRF allowlist. Outbound provider fetches must match one of these hosts.",
     )
@@ -81,10 +84,23 @@ class Settings(BaseSettings):
 
     @field_validator("cors_origins", "http_allowed_hosts", mode="before")
     @classmethod
-    def _split_csv(cls, value: object) -> object:
-        if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
-        return value
+    def _parse_list(cls, value: object) -> object:
+        """Accept a comma-separated string or a JSON array.
+
+        These fields are annotated ``NoDecode`` because pydantic-settings otherwise
+        JSON-decodes complex types straight from the environment, before validators run —
+        which made the documented ``HOST=a.example,b.example`` form raise SettingsError at
+        startup. Both forms are accepted here so neither the documented CSV style nor a
+        JSON array surprises anyone.
+        """
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith("["):
+            return json.loads(text)
+        return [item.strip() for item in text.split(",") if item.strip()]
 
     @property
     def sync_database_url(self) -> str:
