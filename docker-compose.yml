@@ -1,5 +1,12 @@
-# Local infrastructure. Application processes run on the host via the Makefile so that
-# iteration stays fast; only stateful dependencies live here.
+# Market Radar — full local stack.
+#
+#   docker compose up --build
+#   → http://localhost:3000
+#
+# Bring-up order is enforced with health and completion conditions, so the web UI is only
+# reachable once the database is migrated, the demo universe is seeded, and the pipeline and
+# research loop have actually produced a theme and a report. You never see an empty app.
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,7 +23,69 @@ services:
       test: ["CMD-SHELL", "pg_isready -U marketradar -d marketradar"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+
+  # One-shot: migrate, seed the fictional DEMO universe, run the pipeline, run research.
+  # Every step is idempotent, so re-running `docker compose up` is safe.
+  bootstrap:
+    build:
+      context: ./backend
+    environment:
+      MARKETRADAR_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@postgres:5432/marketradar
+      MARKETRADAR_LOG_FORMAT: console
+      MARKETRADAR_LOG_LEVEL: WARNING
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        echo "→ applying migrations"
+        alembic upgrade head
+        echo "→ seeding the synthetic DEMO universe (fictional issuers only)"
+        python -m marketradar.cli seed
+        echo "→ running the pipeline: evidence → events → signals → trends → themes → scores"
+        python -m marketradar.cli pipeline
+        echo "→ running the research loop: plan → search → findings → report"
+        python -m marketradar.cli research ai-memory-demand
+        echo "→ ready"
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      MARKETRADAR_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@postgres:5432/marketradar
+      MARKETRADAR_CORS_ORIGINS: http://localhost:3000
+      MARKETRADAR_LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build:
+      context: ./frontend
+    environment:
+      # Server-side fetch across the compose network; the browser only ever talks to :3000.
+      MARKETRADAR_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   marketradar-pgdata:

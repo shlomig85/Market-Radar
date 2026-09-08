@@ -54,18 +54,44 @@ about a real, tradeable security is unrepresentable rather than merely discourag
 
 ---
 
-## Quick start
+## Run it on your machine
 
-Requirements: Python 3.11+, Node 20+, PostgreSQL 16 (or Docker).
+### With Docker — one command
+
+```bash
+make up          # or: ./scripts/start.sh
+```
+
+Then open **http://localhost:3000**. The API and its OpenAPI docs are at
+**http://localhost:8000/docs**. Stop with `make down`.
+
+`make up` starts PostgreSQL, applies migrations, seeds the fictional DEMO universe, runs the
+pipeline and the research loop, and only then starts the API and the web server — so the
+first page you open already has a theme, a value chain and a report on it. Every step is
+idempotent, so running it again is safe.
+
+The first build takes a few minutes; later starts take seconds. Data persists in a Docker
+volume; `docker compose down -v` clears it.
+
+### Without Docker — host processes
+
+Requirements: Python 3.11+, Node 20+, and a running PostgreSQL 16 with a `marketradar`
+database and role.
+
+```bash
+./scripts/start.sh --native
+```
+
+Or step by step, which is the same sequence and easier to debug:
 
 ```bash
 cp .env.example .env
 make setup        # install backend + frontend dependencies
-make db-up        # start PostgreSQL (skip if you have a local cluster)
+make db-up        # start PostgreSQL (skip if you already run a local cluster)
 make migrate      # apply migrations
 make seed         # load the fictional DEMO reference universe
-make pipeline     # ingest → events → signals → trends → themes → scores
-make research     # plan → search → findings → report
+make pipeline     # ingest -> events -> signals -> trends -> themes -> scores
+make research     # plan -> search -> findings -> report
 make api          # http://localhost:8000  (docs at /docs)
 make web          # http://localhost:3000
 ```
@@ -73,13 +99,14 @@ make web          # http://localhost:3000
 `make all` runs the whole chain from an empty database to a rendered report.
 `make help` lists every target.
 
-### Inspect from the terminal
+### Troubleshooting
 
-```bash
-make providers                      # which capabilities have data, and in what mode
-make show theme=ai-memory-demand     # scores with full decomposition and the value chain
-make stats                           # row counts across the intelligence tables
-```
+| Symptom | Cause |
+| --- | --- |
+| "API unreachable" on the dashboard | the backend is not running, or `MARKETRADAR_API_URL` points at the wrong host |
+| "No themes have formed yet" | the pipeline has not run — `make pipeline`. This is also the honest answer whenever nothing is accelerating |
+| Theme page shows no research trace | `make research` has not run for that theme. The panel reflects the database rather than rendering a placeholder |
+| Port 3000 or 8000 already in use | change the host side of the port mapping in `docker-compose.yml` |
 
 ---
 

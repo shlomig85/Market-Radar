@@ -7,12 +7,22 @@ FRONTEND := frontend
 PY := python3
 
 .DEFAULT_GOAL := help
-.PHONY: help setup db-up db-down migrate migration seed pipeline research show providers \
-        stats reset api web test test-unit test-integration test-e2e lint typecheck check all
+.PHONY: help up down logs setup db-up db-down migrate migration seed pipeline research show \
+        providers stats reset api web test test-unit test-integration test-e2e lint typecheck \
+        check all
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	  awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+
+up: ## Run the whole stack in Docker, then open http://localhost:3000
+	./scripts/start.sh
+
+down: ## Stop the Docker stack
+	docker compose down
+
+logs: ## Follow the Docker stack logs
+	docker compose logs -f
 
 setup: ## Install backend and frontend dependencies
 	$(PY) -m pip install -e "$(BACKEND)[dev]"
