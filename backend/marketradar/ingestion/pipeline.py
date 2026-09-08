@@ -25,6 +25,7 @@ from marketradar.domain.models import (
     Source,
     SourceDocument,
 )
+from marketradar.entities import CompanyRecord, EntityResolver
 from marketradar.errors import ValidationError
 from marketradar.evidence.clustering import ClusterCandidate, assign_clusters
 from marketradar.evidence.extractor import EXTRACTOR_NAME, EXTRACTOR_VERSION, extract
@@ -237,15 +238,29 @@ def rebuild_clusters(session: Session, settings: Settings | None = None) -> Inge
 
 
 # -------------------------------------------------------------- evidence
+def build_resolver(session: Session) -> EntityResolver:
+    """Build an entity resolver over every company currently known."""
+    return EntityResolver(
+        [
+            CompanyRecord(key=c.key, name=c.name, ticker=c.ticker)
+            for c in session.scalars(select(Company)).all()
+        ]
+    )
+
+
 def extract_evidence(session: Session) -> IngestionReport:
     """Extract evidence for documents that do not yet have it, at this extractor version."""
     report = IngestionReport()
-    companies = session.scalars(select(Company)).all()
-    lexicon: dict[str, str] = {}
-    for company in companies:
-        lexicon[company.name] = company.key
-        if company.ticker:
-            lexicon[company.ticker] = company.key
+    resolver = build_resolver(session)
+
+    def resolve_entity(sentence: str) -> str | None:
+        """Company key for a sentence, or None when nothing is confidently identified.
+
+        ``resolve_one`` returns None for ambiguous mentions rather than guessing: a wrong
+        attribution corrupts the evidence base more than a missing one.
+        """
+        match = resolver.resolve_one(sentence)
+        return match.company_key if match else None
 
     done = {
         document_id
@@ -260,7 +275,9 @@ def extract_evidence(session: Session) -> IngestionReport:
         if document.id in done:
             continue
         hints = tuple((document.provider_payload or {}).get("subject_hints", ()))
-        for item in extract(document.body_text, entity_lexicon=lexicon, subject_hints=hints):
+        for item in extract(
+            document.body_text, resolve_entity=resolve_entity, subject_hints=hints
+        ):
             session.add(
                 EvidenceItem(
                     document_id=document.id,

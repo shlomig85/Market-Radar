@@ -81,12 +81,21 @@ def test_subject_detection_uses_document_hints_when_the_sentence_is_generic():
     assert with_hint[0].subject_key == "memory"
 
 
-def test_entity_lexicon_attaches_a_company():
+def test_entity_resolution_attaches_a_company():
+    """The extractor takes a resolution function, not a substring lexicon."""
     results = extract(
         "Northbridge Memory Corp said demand is accelerating.",
-        entity_lexicon={"Northbridge Memory Corp": "nbmx"},
+        resolve_entity=lambda sentence: "nbmx" if "Northbridge" in sentence else None,
     )
     assert results[0].entity_hint == "nbmx"
+
+
+def test_no_company_is_attached_when_resolution_declines():
+    results = extract(
+        "Demand is accelerating on strong orders.", resolve_entity=lambda _s: None
+    )
+    assert results
+    assert all(item.entity_hint is None for item in results)
 
 
 def test_sentence_splitting_preserves_offsets():

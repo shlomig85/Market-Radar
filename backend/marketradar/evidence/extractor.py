@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from marketradar.domain.enums import Direction, EventType
@@ -294,7 +295,7 @@ def is_forward_looking(sentence: str) -> bool:
 
 def extract(
     text: str,
-    entity_lexicon: dict[str, str] | None = None,
+    resolve_entity: Callable[[str], str | None] | None = None,
     subject_hints: tuple[str, ...] = (),
 ) -> list[ExtractedEvidence]:
     """Extract typed, span-anchored evidence from a document body.
@@ -302,8 +303,12 @@ def extract(
     One sentence may carry several distinct claims ("demand is accelerating **and** capacity
     is committed"), so several rules may fire — but only the first rule per event type, so a
     single statement cannot inflate the evidence count for the same underlying change.
+
+    ``resolve_entity`` maps a sentence to a company key, or to ``None`` when no company is
+    confidently identified. It is a function rather than a lexicon so the extractor stays
+    independent of how resolution works; the substring lexicon it replaced attributed
+    evidence containing the word "all" to Allstate.
     """
-    entity_lexicon = entity_lexicon or {}
     results: list[ExtractedEvidence] = []
 
     for start, end, sentence in split_sentences(text):
@@ -318,12 +323,7 @@ def extract(
         if is_stability_statement(matchable):
             continue
         speculative = is_forward_looking(matchable)
-        lowered = matchable.lower()
-        entity_hint = None
-        for surface, key in entity_lexicon.items():
-            if surface.lower() in lowered:
-                entity_hint = key
-                break
+        entity_hint = resolve_entity(matchable) if resolve_entity else None
 
         seen_types: set[EventType] = set()
         for rule in RULES:
