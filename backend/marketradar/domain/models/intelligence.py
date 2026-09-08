@@ -57,6 +57,12 @@ class Event(UuidPkMixin, TimestampMixin, Base):
     subject_key: Mapped[str | None] = mapped_column(String(128))
 
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    #: The earliest instant this event could have been known: the publication time of the
+    #: FIRST supporting document. Every as-of read filters on this, which is what stops
+    #: information published after T from entering an analysis performed as of T.
+    #: ``occurred_at`` alone is not sufficient — an event can occur long before it is
+    #: reported, and using it as the only filter admits future information.
+    knowable_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     cluster_id: Mapped[str | None] = mapped_column(ForeignKey("evidence_clusters.id"))
@@ -73,6 +79,7 @@ class Event(UuidPkMixin, TimestampMixin, Base):
         CheckConstraint("magnitude >= 0 AND magnitude <= 1", name="magnitude_range"),
         CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence_range"),
         Index("ix_events_occurred_at", "occurred_at"),
+        Index("ix_events_knowable_at", "knowable_at"),
         Index("ix_events_event_type", "event_type"),
         Index("ix_events_subject_key", "subject_key"),
         Index("ix_events_entity", "entity_type", "entity_key"),

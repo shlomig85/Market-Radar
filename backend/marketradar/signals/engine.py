@@ -137,8 +137,16 @@ def confidence_from_independence(profile_: IndependenceProfile) -> float:
 class SignalEngine:
     """Computes and persists signal observations."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, as_of: datetime) -> None:
+        """``as_of`` is mandatory, not optional.
+
+        Every event read is gated on ``knowable_at <= as_of``. Making this a required
+        constructor argument means a caller cannot accidentally compute a signal over
+        information that did not exist yet — the failure mode is a missing argument at
+        import time rather than silently contaminated output.
+        """
         self.session = session
+        self.as_of = as_of
         self._evidence_index: dict[str, list[tuple[EvidenceItem, Source]]] | None = None
 
     # ------------------------------------------------------------------
@@ -168,6 +176,9 @@ class SignalEngine:
                 Event.subject_key == definition.subject_key,
                 Event.occurred_at >= start,
                 Event.occurred_at < end,
+                # The temporal-integrity gate. Without it, a document published after the
+                # as-of instant describing an earlier event contaminates a historical window.
+                Event.knowable_at <= self.as_of,
             )
         ).all()
 

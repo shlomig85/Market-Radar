@@ -34,6 +34,7 @@ from marketradar.logging import get_logger
 from marketradar.mapping.exposure import compute_exposures
 from marketradar.mapping.value_chain import Anchor
 from marketradar.providers import ProviderRegistry, build_default_registry
+from marketradar.providers.base import ProviderQuery
 from marketradar.scoring import persist_score
 from marketradar.signals.definitions import SIGNAL_DEFINITIONS, SIGNALS_BY_KEY
 from marketradar.signals.engine import SignalEngine
@@ -83,8 +84,15 @@ def run_pipeline(
         if not health.available:
             continue
         sources = upsert_sources(session, provider.sources())
+        # Ingestion is windowed at the source: a provider must not hand back documents
+        # published after the as-of instant. Previously this fetched the entire corpus
+        # regardless of as_of, which made the parameter decorative.
         fetch = getattr(provider, "get_recent_documents", None)
-        payload = fetch(limit=500) if fetch else provider.search(_catchall_query())
+        payload = (
+            fetch(limit=500, until=as_of)
+            if fetch
+            else provider.search(_catchall_query(as_of))
+        )
         result.ingestion = result.ingestion.merge(
             ingest_documents(session, payload, sources, now=as_of)
         )
@@ -96,10 +104,10 @@ def run_pipeline(
     # cluster; the operation is idempotent, so the second pass is cheap and keeps the
     # denormalised link exact.
     rebuild_clusters(session, settings)
-    result.ingestion = result.ingestion.merge(build_events(session))
+    result.ingestion = result.ingestion.merge(build_events(session, as_of=as_of))
 
     # --- 3. signals ----------------------------------------------------
-    engine = SignalEngine(session)
+    engine = SignalEngine(session, as_of=as_of)
     for definition in SIGNAL_DEFINITIONS:
         engine.compute_signal(definition, as_of=as_of)
         result.signals_computed += 1
@@ -190,10 +198,10 @@ def _finalise_theme(
     session.flush()
 
 
-def _catchall_query():  # type: ignore[no-untyped-def]
+def _catchall_query(as_of: datetime) -> ProviderQuery:
     from marketradar.providers.base import ProviderQuery
 
-    return ProviderQuery(text="", terms=(), limit=500)
+    return ProviderQuery(text="", terms=(), limit=500, until=as_of)
 
 
 def latest_theme(session: Session, slug: str) -> Theme | None:

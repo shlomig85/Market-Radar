@@ -291,14 +291,20 @@ def extract_evidence(session: Session) -> IngestionReport:
 
 
 # ---------------------------------------------------------------- events
-def build_events(session: Session) -> IngestionReport:
+def build_events(session: Session, as_of: datetime | None = None) -> IngestionReport:
     """Group evidence into typed events.
 
     The grouping key is ``(cluster, event_type, subject, event day)``. Because the cluster is
     part of the key, five rewrites of one announcement collapse into **one** event — which is
     the whole point of the ancestry model. Evidence with no event type (forward-looking or
     historical statements) never becomes an event.
+
+    ``as_of`` is the instant the analysis is being performed at. It is recorded as
+    ``detected_at`` so that a historical replay reports when the system *would have* detected
+    the event, not when the replay happened to run — without which discovery lead time (the
+    product's north-star metric) cannot be computed from a backtest.
     """
+    as_of = as_of or datetime.now(tz=UTC)
     report = IngestionReport()
     existing = {
         key for (key,) in session.execute(select(Event.dedupe_key)).all()
@@ -334,7 +340,10 @@ def build_events(session: Session) -> IngestionReport:
             entity_label=entity_key or subject,
             subject_key=subject,
             occurred_at=min(i.event_at for i in items),
-            detected_at=datetime.now(tz=UTC),
+            # First publication among the supporting evidence: before this instant, nobody
+            # could have known about this event.
+            knowable_at=min(i.published_at for i in items),
+            detected_at=as_of,
             cluster_id=cluster_id,
             data_mode=DataMode.weakest([i.data_mode for i in items]),
             dedupe_key=dedupe_key,

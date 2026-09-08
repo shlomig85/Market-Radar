@@ -116,7 +116,12 @@ def collect_metrics(
         .join(EvidenceItem, EvidenceItem.id == EventEvidence.evidence_id)
         .join(SourceDocument, SourceDocument.id == EvidenceItem.document_id)
         .join(Source, Source.id == SourceDocument.source_id)
-        .where(Event.occurred_at >= window_start, Event.occurred_at <= as_of)
+        .where(
+            Event.occurred_at >= window_start,
+            Event.occurred_at <= as_of,
+            # Temporal-integrity gate: see Event.knowable_at.
+            Event.knowable_at <= as_of,
+        )
     ).all()
 
     # A cluster supports the theme if any of its events push the theme's signals up, and

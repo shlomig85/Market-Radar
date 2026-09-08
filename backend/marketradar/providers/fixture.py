@@ -146,9 +146,13 @@ class _FixtureBase:
         scored: list[tuple[float, dict[str, Any]]] = []
         for raw in self._documents():
             event_at = _parse(raw.get("event_at")) or _parse(raw["published_at"])
+            published_at = _parse(raw["published_at"])
+            # `since` bounds relevance and is measured on event time: how far back we care
+            # about things happening. `until` is the as-of instant and must be measured on
+            # PUBLICATION time — a document about an old event is unknowable until published.
             if query.since and event_at and event_at < query.since:
                 continue
-            if query.until and event_at and event_at > query.until:
+            if query.until and published_at and published_at > query.until:
                 continue
             haystack = _tokens(raw["title"]) | _tokens(raw["body_text"])
             hints = {h.lower() for h in raw.get("subject_hints", [])}
@@ -175,9 +179,20 @@ class _FixtureBase:
                 return self._to_document(raw)
         return None
 
-    def get_recent_documents(self, limit: int = 100) -> ProviderResult:
-        """Everything this capability serves, newest first. Used by the ingestion job."""
-        docs = sorted(self._documents(), key=lambda d: d["published_at"], reverse=True)[:limit]
+    def get_recent_documents(
+        self, limit: int = 100, until: datetime | None = None
+    ) -> ProviderResult:
+        """Documents this capability serves, newest first, published no later than ``until``.
+
+        ``until`` is the as-of instant. Filtering on *publication* time (not event time) is
+        the point: a document about an old event is still unknowable until it is published.
+        """
+        candidates = self._documents()
+        if until is not None:
+            candidates = [
+                raw for raw in candidates if (_parse(raw["published_at"]) or until) <= until
+            ]
+        docs = sorted(candidates, key=lambda d: d["published_at"], reverse=True)[:limit]
         return ProviderResult(
             provider_key=self.key,
             mode=DataMode.DEMO,
