@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ground text-ink font-sans antialiased;
+}
+
+/* Numerics are compared column-to-column constantly in this UI, so they are tabular. */
+.numeric {
+  @apply font-mono tabular-nums;
+}
+
+.panel {
+  @apply bg-panel border border-line rounded;
+}
+
+.label {
+  @apply text-[10px] uppercase tracking-[0.14em] text-faint;
+}

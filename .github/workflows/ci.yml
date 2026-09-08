@@ -1,0 +1,138 @@
+name: CI
+
+# `pull_request` alone covers PR branches; `push` is limited to main so a PR does not
+# run every job twice.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — lint, types, tests
+    runs-on: ubuntu-latest
+
+    # The suite runs against real PostgreSQL, never SQLite (ADR-005): the schema depends on
+    # JSONB and check constraints, and a SQLite run would pass while production diverged.
+    # The service database is named marketradar_test because that is what conftest expects.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: marketradar
+          POSTGRES_PASSWORD: marketradar
+          POSTGRES_DB: marketradar_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketradar -d marketradar_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      MARKETRADAR_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@localhost:5432/marketradar_test
+      MARKETRADAR_TEST_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@localhost:5432/marketradar_test
+      MARKETRADAR_ENVIRONMENT: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        run: python -m pip install --upgrade pip && pip install -e "backend[dev]"
+
+      - name: Lint (ruff)
+        working-directory: backend
+        run: python -m ruff check marketradar tests
+
+      - name: Types (mypy)
+        working-directory: backend
+        run: python -m mypy marketradar
+
+      - name: Tests
+        working-directory: backend
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend — types and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      # Pages are server components marked force-dynamic, so the build needs no running API.
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  stack:
+    name: Container stack — build and smoke test
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    # This job exists to close a specific gap: the images and the compose ordering were
+    # authored in an environment with no Docker daemon and could not be executed there.
+    # It builds both images, brings the whole stack up through scripts/start.sh, and
+    # asserts the UI actually renders pipeline output — so "it runs on your machine" is a
+    # verified claim rather than an expectation.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bring the stack up
+        run: ./scripts/start.sh
+
+      - name: API is healthy
+        run: |
+          curl -fsS http://localhost:8000/health | tee /dev/stderr | grep -q '"status":"ok"'
+
+      - name: Provider modes are reported honestly
+        run: |
+          # Market data has no configured vendor; it must report UNAVAILABLE rather than
+          # silently returning empty results that could read as "we looked and found none".
+          curl -fsS http://localhost:8000/providers \
+            | python3 -c "import json,sys; m={p['capability']:p['mode'] for p in json.load(sys.stdin)}; print(m); assert m['MARKET_DATA']=='UNAVAILABLE', m"
+
+      - name: Pipeline and research actually ran during bootstrap
+        run: |
+          curl -fsS http://localhost:8000/themes \
+            | python3 -c "import json,sys; t=json.load(sys.stdin); print(t); assert t, 'no theme formed'; assert t[0]['slug']=='ai-memory-demand', t[0]['slug']"
+          curl -fsS http://localhost:8000/themes/ai-memory-demand/report >/dev/null
+
+      - name: UI renders the theme
+        run: |
+          curl -fsS http://localhost:3000/ | grep -q "AI Memory Demand"
+          curl -fsS http://localhost:3000/themes/ai-memory-demand | grep -q "Evidence ledger"
+
+      - name: Stack logs
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
