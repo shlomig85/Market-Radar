@@ -1,0 +1,931 @@
+{
+  "corpus_version": "1.1.0",
+  "generated_for": "development",
+  "data_mode": "DEMO",
+  "reference_end_date": "2026-09-05T00:00:00+00:00",
+  "disclaimer": "Synthetic development corpus. All companies, publishers, documents, statements and figures are invented. Nothing here is a claim about any real company or security.",
+  "sources": [
+    {
+      "key": "demo_regulatory_filings",
+      "name": "Demo Regulatory Filing Archive (SYNTHETIC)",
+      "publisher": "Demo Regulatory Archive",
+      "source_type": "SEC_FILING",
+      "source_class": "REGULATORY",
+      "base_quality": 100,
+      "homepage_url": "https://filings.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO",
+      "notes": "Synthetic stand-in for a regulatory filing archive."
+    },
+    {
+      "key": "demo_company_releases",
+      "name": "Demo Company Disclosure Wire (SYNTHETIC)",
+      "publisher": "Demo Company Wire",
+      "source_type": "COMPANY_PRESS_RELEASE",
+      "source_class": "PRIMARY_CORPORATE",
+      "base_quality": 95,
+      "homepage_url": "https://wire.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO",
+      "notes": "Synthetic stand-in for issuer press releases."
+    },
+    {
+      "key": "demo_earnings_transcripts",
+      "name": "Demo Earnings Transcript Service (SYNTHETIC)",
+      "publisher": "Demo Transcript Service",
+      "source_type": "EARNINGS_TRANSCRIPT",
+      "source_class": "PRIMARY_CORPORATE",
+      "base_quality": 93,
+      "homepage_url": "https://transcripts.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    },
+    {
+      "key": "demo_gov_statistics",
+      "name": "Demo Trade Statistics Office (SYNTHETIC)",
+      "publisher": "Demo Statistics Office",
+      "source_type": "GOVERNMENT_DATA",
+      "source_class": "GOVERNMENT",
+      "base_quality": 96,
+      "homepage_url": "https://stats.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    },
+    {
+      "key": "demo_industry_body",
+      "name": "Demo Semiconductor Industry Council (SYNTHETIC)",
+      "publisher": "Demo Industry Council",
+      "source_type": "INDUSTRY_ASSOCIATION",
+      "source_class": "INDUSTRY",
+      "base_quality": 88,
+      "homepage_url": "https://council.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    },
+    {
+      "key": "demo_financial_press",
+      "name": "Demo Financial Daily (SYNTHETIC)",
+      "publisher": "Demo Financial Daily",
+      "source_type": "MAJOR_FINANCIAL_MEDIA",
+      "source_class": "FINANCIAL_MEDIA",
+      "base_quality": 85,
+      "homepage_url": "https://daily.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    },
+    {
+      "key": "demo_syndication",
+      "name": "Demo Syndication Feed (SYNTHETIC)",
+      "publisher": "Demo Syndication Feed",
+      "source_type": "MAJOR_FINANCIAL_MEDIA",
+      "source_class": "FINANCIAL_MEDIA",
+      "base_quality": 70,
+      "homepage_url": "https://syndicate.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO",
+      "notes": "Republishes other outlets; used to exercise ancestry detection."
+    },
+    {
+      "key": "demo_trade_press",
+      "name": "Demo Memory Technology Review (SYNTHETIC)",
+      "publisher": "Demo Memory Technology Review",
+      "source_type": "SPECIALIST_PUBLICATION",
+      "source_class": "TECHNICAL",
+      "base_quality": 80,
+      "homepage_url": "https://memreview.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    },
+    {
+      "key": "demo_analyst_notes",
+      "name": "Demo Sell-Side Note Aggregator (SYNTHETIC)",
+      "publisher": "Demo Research Aggregator",
+      "source_type": "ANALYST_COMMENTARY",
+      "source_class": "FINANCIAL_MEDIA",
+      "base_quality": 72,
+      "homepage_url": "https://notes.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    },
+    {
+      "key": "demo_forum",
+      "name": "Demo Hardware Community Forum (SYNTHETIC)",
+      "publisher": "Demo Hardware Forum",
+      "source_type": "COMMUNITY_FORUM",
+      "source_class": "COMMUNITY",
+      "base_quality": 35,
+      "homepage_url": "https://forum.demo.invalid",
+      "is_synthetic": true,
+      "data_mode": "DEMO"
+    }
+  ],
+  "industries": [
+    {
+      "key": "technology",
+      "name": "Technology",
+      "sector": "Technology",
+      "parent": null
+    },
+    {
+      "key": "semiconductors",
+      "name": "Semiconductors",
+      "sector": "Technology",
+      "parent": "technology"
+    },
+    {
+      "key": "memory",
+      "name": "Memory",
+      "sector": "Technology",
+      "parent": "semiconductors"
+    },
+    {
+      "key": "semiconductor_equipment",
+      "name": "Semiconductor Equipment",
+      "sector": "Technology",
+      "parent": "semiconductors"
+    },
+    {
+      "key": "electronic_materials",
+      "name": "Electronic Materials",
+      "sector": "Materials",
+      "parent": "semiconductors"
+    },
+    {
+      "key": "ai_infrastructure",
+      "name": "AI Infrastructure",
+      "sector": "Technology",
+      "parent": "technology"
+    },
+    {
+      "key": "cloud_services",
+      "name": "Cloud Services",
+      "sector": "Technology",
+      "parent": "technology"
+    }
+  ],
+  "companies": [
+    {
+      "key": "nbmx",
+      "name": "Northbridge Memory Corp",
+      "ticker": "NBMX",
+      "exchange": "DEMO",
+      "industry_key": "memory",
+      "description": "Fictional manufacturer of DRAM and high-bandwidth memory."
+    },
+    {
+      "key": "helx",
+      "name": "Helix Semiconductor Memory",
+      "ticker": "HELX",
+      "exchange": "DEMO",
+      "industry_key": "memory",
+      "description": "Fictional DRAM manufacturer with a smaller HBM programme."
+    },
+    {
+      "key": "crsd",
+      "name": "Crossroad Storage Media",
+      "ticker": "CRSD",
+      "exchange": "DEMO",
+      "industry_key": "memory",
+      "description": "Fictional NAND flash manufacturer."
+    },
+    {
+      "key": "vrdn",
+      "name": "Veridian Litho Systems",
+      "ticker": "VRDN",
+      "exchange": "DEMO",
+      "industry_key": "semiconductor_equipment",
+      "description": "Fictional supplier of deposition and lithography tools to memory fabs."
+    },
+    {
+      "key": "plnm",
+      "name": "Plenum Test Systems",
+      "ticker": "PLNM",
+      "exchange": "DEMO",
+      "industry_key": "semiconductor_equipment",
+      "description": "Fictional supplier of memory test and advanced packaging equipment."
+    },
+    {
+      "key": "kstn",
+      "name": "Keystone Materials Group",
+      "ticker": "KSTN",
+      "exchange": "DEMO",
+      "industry_key": "electronic_materials",
+      "description": "Fictional upstream supplier of substrates and specialty chemicals."
+    },
+    {
+      "key": "atlq",
+      "name": "Atlas Quanta Systems",
+      "ticker": "ATLQ",
+      "exchange": "DEMO",
+      "industry_key": "ai_infrastructure",
+      "description": "Fictional AI server original equipment manufacturer."
+    },
+    {
+      "key": "orbc",
+      "name": "Orbital Cloud Holdings",
+      "ticker": "ORBC",
+      "exchange": "DEMO",
+      "industry_key": "cloud_services",
+      "description": "Fictional hyperscale cloud operator deploying AI infrastructure."
+    }
+  ],
+  "relationships": [
+    {
+      "source_entity_type": "TECHNOLOGY",
+      "source_entity_key": "ai_infrastructure",
+      "target_entity_type": "TECHNOLOGY",
+      "target_entity_key": "ai_server_deployment",
+      "relationship_type": "DRIVES_DEMAND_FOR",
+      "weight": 0.95,
+      "confidence": 0.9,
+      "note": "AI infrastructure spending is realised as server deployments."
+    },
+    {
+      "source_entity_type": "TECHNOLOGY",
+      "source_entity_key": "ai_server_deployment",
+      "target_entity_type": "TECHNOLOGY",
+      "target_entity_key": "memory_requirement",
+      "relationship_type": "DRIVES_DEMAND_FOR",
+      "weight": 0.9,
+      "confidence": 0.85,
+      "note": "AI servers carry materially more memory per unit."
+    },
+    {
+      "source_entity_type": "TECHNOLOGY",
+      "source_entity_key": "memory_requirement",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "hbm",
+      "relationship_type": "DRIVES_DEMAND_FOR",
+      "weight": 0.9,
+      "confidence": 0.85,
+      "note": "Accelerator memory requirement is met primarily with HBM."
+    },
+    {
+      "source_entity_type": "TECHNOLOGY",
+      "source_entity_key": "memory_requirement",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "dram",
+      "relationship_type": "DRIVES_DEMAND_FOR",
+      "weight": 0.8,
+      "confidence": 0.85,
+      "note": "Host-side memory requirement is met with conventional DRAM."
+    },
+    {
+      "source_entity_type": "TECHNOLOGY",
+      "source_entity_key": "memory_requirement",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "nand",
+      "relationship_type": "DRIVES_DEMAND_FOR",
+      "weight": 0.55,
+      "confidence": 0.7,
+      "note": "Training and inference datasets increase local storage requirements."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "nbmx",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "hbm",
+      "relationship_type": "PRODUCES",
+      "weight": 0.9,
+      "confidence": 0.95,
+      "note": "Primary HBM product line."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "nbmx",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "dram",
+      "relationship_type": "PRODUCES",
+      "weight": 0.75,
+      "confidence": 0.95,
+      "note": "Conventional DRAM line."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "helx",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "dram",
+      "relationship_type": "PRODUCES",
+      "weight": 0.85,
+      "confidence": 0.9,
+      "note": "DRAM is the majority of revenue."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "helx",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "hbm",
+      "relationship_type": "PRODUCES",
+      "weight": 0.4,
+      "confidence": 0.7,
+      "note": "Smaller, ramping HBM programme."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "crsd",
+      "target_entity_type": "PRODUCT",
+      "target_entity_key": "nand",
+      "relationship_type": "PRODUCES",
+      "weight": 0.9,
+      "confidence": 0.9,
+      "note": "NAND flash specialist."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "vrdn",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "nbmx",
+      "relationship_type": "SUPPLIES",
+      "weight": 0.7,
+      "confidence": 0.85,
+      "note": "Deposition and lithography tools."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "vrdn",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "helx",
+      "relationship_type": "SUPPLIES",
+      "weight": 0.6,
+      "confidence": 0.8,
+      "note": "Tools supplied to a second fab operator."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "plnm",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "nbmx",
+      "relationship_type": "SUPPLIES",
+      "weight": 0.55,
+      "confidence": 0.8,
+      "note": "Test and advanced packaging equipment."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "kstn",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "vrdn",
+      "relationship_type": "SUPPLIES",
+      "weight": 0.5,
+      "confidence": 0.7,
+      "note": "Substrates and specialty chemicals."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "atlq",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "nbmx",
+      "relationship_type": "BUYS_FROM",
+      "weight": 0.65,
+      "confidence": 0.85,
+      "note": "Server OEM purchases memory."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "orbc",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "atlq",
+      "relationship_type": "BUYS_FROM",
+      "weight": 0.7,
+      "confidence": 0.8,
+      "note": "Hyperscaler purchases AI servers."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "helx",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "nbmx",
+      "relationship_type": "COMPETES_WITH",
+      "weight": 0.6,
+      "confidence": 0.9,
+      "note": "Competing DRAM/HBM suppliers."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "crsd",
+      "target_entity_type": "COMPANY",
+      "target_entity_key": "nbmx",
+      "relationship_type": "COMPETES_WITH",
+      "weight": 0.3,
+      "confidence": 0.6,
+      "note": "Adjacent memory competition."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "orbc",
+      "target_entity_type": "TECHNOLOGY",
+      "target_entity_key": "ai_infrastructure",
+      "relationship_type": "INVESTS_IN",
+      "weight": 0.8,
+      "confidence": 0.85,
+      "note": "Hyperscale capital expenditure on AI infrastructure."
+    },
+    {
+      "source_entity_type": "COMPANY",
+      "source_entity_key": "atlq",
+      "target_entity_type": "TECHNOLOGY",
+      "target_entity_key": "ai_server_deployment",
+      "relationship_type": "PRODUCES",
+      "weight": 0.8,
+      "confidence": 0.9,
+      "note": "Builds the AI servers being deployed."
+    }
+  ],
+  "documents": [
+    {
+      "external_id": "base-001",
+      "source_key": "demo_industry_body",
+      "url": "https://council.demo.invalid/reports/q1-memory-review",
+      "title": "Quarterly memory market review: stable conditions",
+      "body_text": "The council reports that memory demand across the quarter was broadly stable. Contract pricing was little changed versus the prior quarter. Inventory levels at module makers remained within the normal range. Participants described order books as steady with no notable shortage.",
+      "published_at": "2026-03-17T00:00:00+00:00",
+      "event_at": "2026-03-14T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-002",
+      "source_key": "demo_financial_press",
+      "url": "https://daily.demo.invalid/2026/03/memory-margins",
+      "title": "Memory suppliers report unremarkable quarter",
+      "body_text": "Fictional memory suppliers reported results in line with expectations. Management commentary described demand as steady across server and mobile segments. No supplier reported capacity constraints during the period.",
+      "published_at": "2026-03-24T00:00:00+00:00",
+      "event_at": "2026-03-21T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-003",
+      "source_key": "demo_company_releases",
+      "url": "https://wire.demo.invalid/nbmx/2026/03/capacity-update",
+      "title": "Northbridge Memory Corp provides routine capacity update",
+      "body_text": "Northbridge Memory Corp said utilisation across its fabs was consistent with the prior quarter. The company reiterated its existing capital expenditure plan for the year. Demand for high-bandwidth memory was described as growing steadily.",
+      "published_at": "2026-04-08T00:00:00+00:00",
+      "event_at": "2026-04-06T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "hbm"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-004",
+      "source_key": "demo_trade_press",
+      "url": "https://memreview.demo.invalid/2026/04/hbm-roadmaps",
+      "title": "HBM roadmaps advance on schedule",
+      "body_text": "Suppliers continue to advance high-bandwidth memory roadmaps. Technology transitions are proceeding on previously published schedules. Analysts see no immediate change to the supply and demand balance.",
+      "published_at": "2026-04-20T00:00:00+00:00",
+      "event_at": "2026-04-18T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "hbm",
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-005",
+      "source_key": "demo_gov_statistics",
+      "url": "https://stats.demo.invalid/trade/2026-04-semiconductors",
+      "title": "Monthly semiconductor trade statistics",
+      "body_text": "Reported export volumes for memory components were broadly flat month over month. Average declared unit values were little changed.",
+      "published_at": "2026-04-28T00:00:00+00:00",
+      "event_at": "2026-04-25T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-006",
+      "source_key": "demo_forum",
+      "url": "https://forum.demo.invalid/threads/build-costs-april",
+      "title": "Anyone else seeing module prices creep up?",
+      "body_text": "A couple of us noticed module prices ticking up slightly this month. Could just be a seasonal thing, hard to say.",
+      "published_at": "2026-04-30T00:00:00+00:00",
+      "event_at": "2026-04-29T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-007",
+      "source_key": "demo_earnings_transcripts",
+      "url": "https://transcripts.demo.invalid/helx/2026-q1",
+      "title": "Helix Semiconductor Memory first-quarter earnings call",
+      "body_text": "Management said demand was solid and that the company was seeing increasing interest from AI server customers. Capital expenditure guidance was unchanged. The company noted that inventory was at a comfortable level.",
+      "published_at": "2026-05-08T00:00:00+00:00",
+      "event_at": "2026-05-06T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-008",
+      "source_key": "demo_analyst_notes",
+      "url": "https://notes.demo.invalid/2026/05/memory-cycle-neutral",
+      "title": "Memory cycle: neutral stance maintained",
+      "body_text": "We maintain a neutral stance on the memory cycle. Demand indicators are mixed and pricing has not moved materially. We would need evidence of sustained order growth to change our view.",
+      "published_at": "2026-05-16T00:00:00+00:00",
+      "event_at": "2026-05-14T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-009",
+      "source_key": "demo_financial_press",
+      "url": "https://daily.demo.invalid/2026/05/ai-server-shipments",
+      "title": "AI server shipments continue to grow",
+      "body_text": "Shipments of AI servers continued to grow during the quarter. Suppliers described the growth rate as consistent with prior periods.",
+      "published_at": "2026-05-23T00:00:00+00:00",
+      "event_at": "2026-05-21T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-010",
+      "source_key": "demo_industry_body",
+      "url": "https://council.demo.invalid/reports/may-inventory",
+      "title": "Industry inventory snapshot: within normal range",
+      "body_text": "Aggregate memory inventory across surveyed participants remained within the normal historical range. Contract pricing was stable during the period.",
+      "published_at": "2026-05-30T00:00:00+00:00",
+      "event_at": "2026-05-28T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-011",
+      "source_key": "demo_trade_press",
+      "url": "https://memreview.demo.invalid/2026/06/capacity-additions",
+      "title": "Planned capacity additions unchanged for the year",
+      "body_text": "Planned wafer capacity additions for the year are unchanged. Equipment order intake was described by suppliers as steady.",
+      "published_at": "2026-06-05T00:00:00+00:00",
+      "event_at": "2026-06-03T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-001",
+      "source_key": "demo_company_releases",
+      "url": "https://wire.demo.invalid/nbmx/2026/08/hbm-supply-agreement",
+      "title": "Northbridge Memory Corp announces multi-year high-bandwidth memory supply agreement",
+      "body_text": "Northbridge Memory Corp today announced a multi-year supply agreement covering high-bandwidth memory for AI accelerator platforms. The company said demand for high-bandwidth memory is accelerating and that its available capacity for the coming year is now substantially committed. Northbridge said it is increasing capital expenditure to expand capacity and that lead times have extended.",
+      "published_at": "2026-08-09T00:00:00+00:00",
+      "event_at": "2026-08-09T00:00:00+00:00",
+      "origin_ref": "demo:announcement:nbmx-hbm-supply-2026-08",
+      "subject_hints": [
+        "memory",
+        "hbm",
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-002",
+      "source_key": "demo_financial_press",
+      "url": "https://daily.demo.invalid/2026/08/northbridge-hbm-deal",
+      "title": "Northbridge signs multi-year HBM supply deal as demand accelerates",
+      "body_text": "Northbridge Memory Corp has announced a multi-year supply agreement covering high-bandwidth memory for AI accelerator platforms. The company said demand for high-bandwidth memory is accelerating and that capacity for the coming year is substantially committed. Northbridge is increasing capital expenditure to expand capacity.",
+      "published_at": "2026-08-09T00:00:00+00:00",
+      "event_at": "2026-08-09T00:00:00+00:00",
+      "origin_ref": "demo:announcement:nbmx-hbm-supply-2026-08",
+      "subject_hints": [
+        "memory",
+        "hbm",
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-003",
+      "source_key": "demo_syndication",
+      "url": "https://syndicate.demo.invalid/wire/northbridge-hbm-deal",
+      "title": "Northbridge signs multi-year HBM supply deal as demand accelerates",
+      "body_text": "Northbridge Memory Corp has announced a multi-year supply agreement covering high-bandwidth memory for AI accelerator platforms. The company said demand for high-bandwidth memory is accelerating and that capacity for the coming year is substantially committed. Northbridge is increasing capital expenditure to expand capacity.",
+      "published_at": "2026-08-10T00:00:00+00:00",
+      "event_at": "2026-08-09T00:00:00+00:00",
+      "origin_ref": "demo:announcement:nbmx-hbm-supply-2026-08",
+      "subject_hints": [
+        "memory",
+        "hbm",
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-004",
+      "source_key": "demo_analyst_notes",
+      "url": "https://notes.demo.invalid/2026/08/northbridge-hbm-readacross",
+      "title": "Read-across from the Northbridge HBM agreement",
+      "body_text": "Following the Northbridge announcement of a multi-year high-bandwidth memory supply agreement, we note the company said demand for high-bandwidth memory is accelerating and that capacity for the coming year is substantially committed. We see read-across for other suppliers.",
+      "published_at": "2026-08-11T00:00:00+00:00",
+      "event_at": "2026-08-09T00:00:00+00:00",
+      "origin_ref": "demo:announcement:nbmx-hbm-supply-2026-08",
+      "subject_hints": [
+        "memory",
+        "hbm"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-005",
+      "source_key": "demo_forum",
+      "url": "https://forum.demo.invalid/threads/northbridge-deal-thread",
+      "title": "Northbridge HBM deal - what it means",
+      "body_text": "Saw the news that Northbridge announced a multi-year high-bandwidth memory supply agreement and said demand is accelerating with capacity substantially committed. This seems like a big deal for the sector.",
+      "published_at": "2026-08-11T00:00:00+00:00",
+      "event_at": "2026-08-09T00:00:00+00:00",
+      "origin_ref": "demo:announcement:nbmx-hbm-supply-2026-08",
+      "subject_hints": [
+        "memory",
+        "hbm"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-006",
+      "source_key": "demo_regulatory_filings",
+      "url": "https://filings.demo.invalid/helx/2026/q2-report",
+      "title": "Helix Semiconductor Memory quarterly report",
+      "body_text": "In the quarter the company experienced increasing demand for memory products from artificial intelligence server customers. Order backlog increased compared with the prior quarter. The company is increasing capital expenditure to add capacity and notes that inventory declined during the period. Contract pricing improved.",
+      "published_at": "2026-08-14T00:00:00+00:00",
+      "event_at": "2026-08-12T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-007",
+      "source_key": "demo_gov_statistics",
+      "url": "https://stats.demo.invalid/trade/2026-08-semiconductors",
+      "title": "Monthly semiconductor trade statistics",
+      "body_text": "Reported export volumes for memory components increased compared with the prior month. Average declared unit values for memory components rose, continuing an upward move recorded in the previous reporting period.",
+      "published_at": "2026-08-17T00:00:00+00:00",
+      "event_at": "2026-08-15T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-008",
+      "source_key": "demo_industry_body",
+      "url": "https://council.demo.invalid/reports/august-inventory",
+      "title": "Industry inventory snapshot: inventories draw down",
+      "body_text": "Aggregate memory inventory across surveyed participants declined relative to the prior survey and is now below the normal historical range. Several participants reported that they are unable to meet requested delivery schedules. Contract pricing increased.",
+      "published_at": "2026-08-19T00:00:00+00:00",
+      "event_at": "2026-08-17T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-009",
+      "source_key": "demo_earnings_transcripts",
+      "url": "https://transcripts.demo.invalid/atlq/2026-q2",
+      "title": "Atlas Quanta Systems second-quarter earnings call",
+      "body_text": "Management said memory content per AI server has increased significantly across the current product generation. The company described memory procurement as a constraint on its ability to fulfil orders and said it has increased its forward purchase commitments. Demand from cloud customers is accelerating.",
+      "published_at": "2026-08-21T00:00:00+00:00",
+      "event_at": "2026-08-19T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-010",
+      "source_key": "demo_company_releases",
+      "url": "https://wire.demo.invalid/vrdn/2026/08/order-intake",
+      "title": "Veridian Litho Systems reports increased order intake from memory customers",
+      "body_text": "Veridian Litho Systems said order intake from memory customers increased materially during the quarter. The company said several customers have accelerated planned capacity expansion projects and that its backlog has extended.",
+      "published_at": "2026-08-23T00:00:00+00:00",
+      "event_at": "2026-08-22T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "equipment"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-011",
+      "source_key": "demo_trade_press",
+      "url": "https://memreview.demo.invalid/2026/08/contract-pricing",
+      "title": "Contract pricing moves higher across memory segments",
+      "body_text": "Contract pricing for DRAM increased again in the latest negotiation round. Suppliers are said to be prioritising high-bandwidth memory allocation, which is tightening availability of conventional DRAM. Buyers report extended lead times.",
+      "published_at": "2026-08-25T00:00:00+00:00",
+      "event_at": "2026-08-24T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "dram",
+        "hbm"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-012",
+      "source_key": "demo_regulatory_filings",
+      "url": "https://filings.demo.invalid/orbc/2026/capex-8k",
+      "title": "Orbital Cloud Holdings capital expenditure disclosure",
+      "body_text": "The company disclosed that it is increasing planned capital expenditure for the year, citing accelerating demand for artificial intelligence capacity. The company said it has increased committed purchases of AI server systems.",
+      "published_at": "2026-08-27T00:00:00+00:00",
+      "event_at": "2026-08-26T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-013",
+      "source_key": "demo_company_releases",
+      "url": "https://wire.demo.invalid/nbmx/2026/09/capacity-expansion",
+      "title": "Northbridge Memory Corp approves capacity expansion programme",
+      "body_text": "Northbridge Memory Corp approved an expansion of production capacity. The company said it cannot meet current demand with existing capacity and that capital expenditure will increase. Construction of an additional facility will begin in the coming quarter.",
+      "published_at": "2026-08-30T00:00:00+00:00",
+      "event_at": "2026-08-30T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "hbm"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "obs-014",
+      "source_key": "demo_trade_press",
+      "url": "https://memreview.demo.invalid/2026/09/equipment-lead-times",
+      "title": "Memory equipment lead times extend",
+      "body_text": "Lead times for memory production equipment have extended. Equipment suppliers report that order intake has increased and that they are adding manufacturing capacity of their own.",
+      "published_at": "2026-09-01T00:00:00+00:00",
+      "event_at": "2026-08-31T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "equipment"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "con-001",
+      "source_key": "demo_analyst_notes",
+      "url": "https://notes.demo.invalid/2026/08/memory-oversupply-risk",
+      "title": "Memory: cyclical oversupply risk is rising, not falling",
+      "body_text": "We caution that announced capacity expansion across the industry is large relative to plausible demand growth. In previous cycles a comparable expansion produced oversupply within eighteen months and pricing declined sharply. We see risk that supply expands faster than demand.",
+      "published_at": "2026-08-20T00:00:00+00:00",
+      "event_at": "2026-08-18T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "con-002",
+      "source_key": "demo_financial_press",
+      "url": "https://daily.demo.invalid/2026/08/memory-valuation-warning",
+      "title": "Memory suppliers already price a strong cycle",
+      "body_text": "Shares of memory suppliers have moved substantially over the past six months. Analysts note that current valuations already embed a strong pricing cycle, which reduces the margin for disappointment.",
+      "published_at": "2026-08-24T00:00:00+00:00",
+      "event_at": "2026-08-23T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "con-003",
+      "source_key": "demo_industry_body",
+      "url": "https://council.demo.invalid/reports/capacity-pipeline",
+      "title": "Announced capacity pipeline reaches multi-year high",
+      "body_text": "The aggregate announced capacity pipeline across surveyed manufacturers has reached a multi-year high. Historically, capacity additions of this scale have been followed by periods of inventory build and pricing decline.",
+      "published_at": "2026-08-28T00:00:00+00:00",
+      "event_at": "2026-08-26T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "con-004",
+      "source_key": "demo_earnings_transcripts",
+      "url": "https://transcripts.demo.invalid/crsd/2026-q2",
+      "title": "Crossroad Storage Media second-quarter earnings call",
+      "body_text": "Management said NAND demand remains soft outside of artificial intelligence workloads and that pricing in consumer segments declined during the quarter. The company said inventory increased modestly.",
+      "published_at": "2026-08-26T00:00:00+00:00",
+      "event_at": "2026-08-24T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory",
+        "nand"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-012",
+      "source_key": "demo_industry_body",
+      "url": "https://council.demo.invalid/reports/june-demand-review",
+      "title": "June memory market review: demand improves modestly",
+      "body_text": "Surveyed participants reported that memory demand improved during the period. Contract pricing increased in selected server segments. Inventory remained within the normal historical range.",
+      "published_at": "2026-06-13T00:00:00+00:00",
+      "event_at": "2026-06-11T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-013",
+      "source_key": "demo_trade_press",
+      "url": "https://memreview.demo.invalid/2026/06/server-segment-demand",
+      "title": "Server segment drives modest memory demand growth",
+      "body_text": "Suppliers reported increasing demand from server customers during the quarter. Lead times extended for selected high-capacity products, though availability across the broader market was unchanged.",
+      "published_at": "2026-06-27T00:00:00+00:00",
+      "event_at": "2026-06-25T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-014",
+      "source_key": "demo_earnings_transcripts",
+      "url": "https://transcripts.demo.invalid/nbmx/2026-q1",
+      "title": "Northbridge Memory Corp first-quarter earnings call",
+      "body_text": "Management said demand increased during the quarter, led by server and data-centre customers. Inventory declined modestly from the prior quarter. Capital expenditure plans for the year were reiterated.",
+      "published_at": "2026-07-11T00:00:00+00:00",
+      "event_at": "2026-07-09T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-015",
+      "source_key": "demo_gov_statistics",
+      "url": "https://stats.demo.invalid/trade/2026-07-semiconductors",
+      "title": "Monthly semiconductor trade statistics",
+      "body_text": "Reported export volumes for memory components increased modestly compared with the prior month. Average declared unit values rose slightly.",
+      "published_at": "2026-07-22T00:00:00+00:00",
+      "event_at": "2026-07-20T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "memory"
+      ],
+      "data_mode": "DEMO"
+    },
+    {
+      "external_id": "base-016",
+      "source_key": "demo_financial_press",
+      "url": "https://daily.demo.invalid/2026/07/ai-capex-plans",
+      "title": "Cloud operators reiterate AI capital expenditure plans",
+      "body_text": "Cloud operators described artificial intelligence capacity demand as growing during the quarter. Planned capital expenditure for the year was reiterated at previously disclosed levels.",
+      "published_at": "2026-07-29T00:00:00+00:00",
+      "event_at": "2026-07-27T00:00:00+00:00",
+      "origin_ref": null,
+      "subject_hints": [
+        "ai"
+      ],
+      "data_mode": "DEMO"
+    }
+  ]
+}

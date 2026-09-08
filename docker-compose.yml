@@ -1,0 +1,22 @@
+# Local infrastructure. Application processes run on the host via the Makefile so that
+# iteration stays fast; only stateful dependencies live here.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: marketradar
+      POSTGRES_PASSWORD: marketradar
+      POSTGRES_DB: marketradar
+    ports:
+      - "5432:5432"
+    volumes:
+      - marketradar-pgdata:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketradar -d marketradar"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  marketradar-pgdata:
