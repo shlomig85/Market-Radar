@@ -75,8 +75,17 @@ volume; `docker compose down -v` clears it.
 
 ### Without Docker — host processes
 
-Requirements: Python 3.11+, Node 20+, and a running PostgreSQL 16 with a `marketradar`
-database and role.
+Requirements: **Python 3.11+** (macOS ships 3.9 as `python3` — the code uses `datetime.UTC`
+and will not run on it), Node 20+, and a running PostgreSQL 16 with a `marketradar`
+database and role. `./scripts/start.sh --native` checks the version and says so rather than
+failing with an ImportError.
+
+To run a one-off command without installing anything, use the container, which bundles the
+right Python:
+
+```bash
+docker compose run --rm api python -m marketradar.cli <command>
+```
 
 ```bash
 ./scripts/start.sh --native

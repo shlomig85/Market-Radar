@@ -8,6 +8,23 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" == "--native" ]]; then
+  # The codebase targets Python 3.11+ (datetime.UTC, PEP 604 unions at runtime). Without
+  # this check the failure is an ImportError from deep inside a module, which points at
+  # the wrong thing entirely. macOS ships 3.9 as `python3`.
+  PY_OK=$(python3 -c 'import sys; print(1 if sys.version_info >= (3, 11) else 0)' 2>/dev/null || echo 0)
+  if [[ "$PY_OK" != "1" ]]; then
+    FOUND=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "none")
+    printf '%s\n' >&2 \
+      "Python 3.11 or newer is required; found ${FOUND}." \
+      "" \
+      "  * macOS ships 3.9 as python3. Install a newer one (python.org, pyenv or brew)," \
+      "    or simply use the container path, which bundles the right version:" \
+      "        ./scripts/start.sh" \
+      "  * To run a one-off command in the container instead:" \
+      "        docker compose run --rm api python -m marketradar.cli <command>"
+    exit 1
+  fi
+
   echo "→ installing dependencies"
   python3 -m pip install -e "backend[dev]" >/dev/null
   (cd frontend && npm install --no-audit --no-fund >/dev/null)
