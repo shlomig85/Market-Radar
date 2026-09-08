@@ -17,7 +17,7 @@ from marketradar.providers.fixture import (
     FixtureFilingsProvider,
     FixtureNewsProvider,
 )
-from marketradar.providers.sec_edgar import SecEdgarFilingsProvider
+from marketradar.providers.sec_edgar import SecCompanyProvider, SecEdgarFilingsProvider
 from marketradar.providers.unavailable import UnavailableProvider
 
 log = get_logger(__name__)
@@ -78,7 +78,11 @@ def _build_filings(settings: Settings) -> Any:
     if settings.filings_provider == "fixture":
         return FixtureFilingsProvider()
     if settings.filings_provider == "sec_edgar":
-        return SecEdgarFilingsProvider(settings=settings)
+        return SecEdgarFilingsProvider(
+            settings=settings,
+            ciks=tuple(settings.sec_ciks),
+            max_document_fetches=settings.sec_max_documents,
+        )
     return UnavailableProvider(
         ProviderCapability.FILINGS,
         f"Filings provider '{settings.filings_provider}' is not implemented in this build.",
@@ -101,6 +105,8 @@ def _build_market_data(settings: Settings) -> Any:
 def _build_company(settings: Settings) -> Any:
     if settings.company_provider == "fixture":
         return FixtureCompanyProvider()
+    if settings.company_provider == "sec":
+        return SecCompanyProvider(settings=settings)
     return UnavailableProvider(
         ProviderCapability.COMPANY_DATA,
         f"Company provider '{settings.company_provider}' is not implemented in this build.",

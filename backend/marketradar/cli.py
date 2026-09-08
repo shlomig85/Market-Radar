@@ -245,5 +245,85 @@ def reset(
     typer.echo("Schema recreated and DEMO universe seeded.")
 
 
+
+
+@app.command(name="live-check")
+def live_check() -> None:
+    """Probe the configured real providers and report exactly what came back.
+
+    Intended to be run where the network is unrestricted. It performs the smallest real
+    request each provider supports and prints the result, so "the live path works" is an
+    observation rather than an expectation.
+    """
+    _bootstrap()
+    settings = get_settings()
+    registry = build_default_registry(settings)
+
+    typer.echo(f"SEC User-Agent : {settings.sec_user_agent or '(not set — SEC will refuse)'}")
+    typer.echo(f"Company provider: {settings.company_provider}")
+    typer.echo(f"Filings provider: {settings.filings_provider}")
+    typer.echo(f"Watchlist CIKs  : {', '.join(settings.sec_ciks) or '(none configured)'}")
+    typer.echo("-" * 78)
+
+    failures = 0
+    for health in registry.health_report():
+        marker = "ok " if health.available else "!! "
+        typer.echo(
+            f"{marker}{health.capability.value:<14}{health.mode.value:<13}"
+            f"verified={str(health.live_path_verified):<6}{health.detail[:60]}"
+        )
+        if not health.available and health.capability.value in {"COMPANY_DATA", "FILINGS"}:
+            failures += 1
+
+    company_provider = registry.company_data
+    if company_provider.health().available:
+        companies = company_provider.list_companies()
+        typer.echo(f"\nCompany universe: {len(companies)} issuers")
+        for company in companies[:5]:
+            typer.echo(
+                f"  {company.ticker or '-':<6} {company.name[:44]:<46}"
+                f"cik={company.cik} mode={company.data_mode.value}"
+            )
+
+    filings_provider = registry.filings
+    if filings_provider.health().available and settings.sec_ciks:
+        from marketradar.providers.base import ProviderQuery
+
+        result = filings_provider.search(ProviderQuery(text="", limit=3))
+        typer.echo(f"\nFilings fetched: {result.count} (mode {result.mode.value})")
+        for document in result.documents:
+            words = len(document.body_text.split())
+            typer.echo(f"  {document.published_at.date()} {document.title[:52]:<54}{words} words")
+            typer.echo(f"     event_at={document.event_at.date() if document.event_at else '-'}"
+                       f"  url={document.url[:64]}")
+
+    typer.echo()
+    if failures:
+        typer.echo(f"{failures} real provider(s) unavailable — see the detail above.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo("All configured real providers answered.")
+
+
+@app.command(name="sync-companies")
+def sync_companies_command() -> None:
+    """Load the company universe from the configured company-data provider."""
+    _bootstrap()
+    from marketradar.ingestion.companies import sync_companies
+
+    registry = build_default_registry()
+    provider = registry.company_data
+    health = provider.health()
+    if not health.available:
+        typer.echo(f"Company provider unavailable: {health.detail}", err=True)
+        raise typer.Exit(code=1)
+
+    with session_scope() as session:
+        report = sync_companies(session, provider.list_companies(), health.mode)
+    typer.echo(
+        f"Companies: {report.created} created, {report.updated} updated, "
+        f"{report.securities_created} securities ({report.mode.value})."
+    )
+
+
 if __name__ == "__main__":
     app()

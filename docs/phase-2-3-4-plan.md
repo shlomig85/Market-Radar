@@ -160,3 +160,49 @@ Phase 2 is complete only when **all** hold:
 - At least one signal computed from real evidence about a real company
 - The live path executed and observed on a real network, with output inspected
 - `health()` reports `LIVE` only after that observation
+
+
+---
+
+## 10. Running the live path
+
+The live path must be executed somewhere with unrestricted network access. On such a
+machine:
+
+```bash
+export MARKETRADAR_COMPANY_PROVIDER=sec
+export MARKETRADAR_FILINGS_PROVIDER=sec_edgar
+# SEC refuses requests without a descriptive User-Agent carrying real contact details.
+export MARKETRADAR_SEC_USER_AGENT="Market Radar your@email.com"
+# Watchlist of CIKs whose filings are ingested (see the limitation below).
+export MARKETRADAR_SEC_CIKS=320193,789019,1045810
+
+make -C backend live-check     # or: python -m marketradar.cli live-check
+```
+
+`live-check` performs the smallest real request each provider supports and prints what
+came back, exiting non-zero if a configured real provider did not answer. It turns "the
+live path works" from an expectation into an observation.
+
+Then:
+
+```bash
+python -m marketradar.cli sync-companies   # real issuers, data_mode=LIVE
+python -m marketradar.cli pipeline         # real filings -> evidence -> signals
+python -m marketradar.cli show <theme-slug>
+```
+
+### Stated limitation: watchlist, not discovery
+
+`MARKETRADAR_SEC_CIKS` is a **watchlist**. The system monitors the issuers named there; it
+does not yet scan the whole registrant universe. That is a deliberate scoping decision for
+this phase, not an oversight — the full-universe crawl is a rate-limit and storage problem
+rather than an intelligence one — but it means the current system performs *trend
+monitoring over a chosen universe*, and calling it discovery would overstate it.
+
+### Known performance characteristics
+
+Measured on a synthetic 10,000-issuer universe: resolver construction 0.66 s, resolution
+~150 ms per 2,400-word document. Ingesting 1,000 filings therefore spends roughly 2.5
+minutes in entity resolution alone. Acceptable now, and the obvious first target if
+throughput becomes a constraint.

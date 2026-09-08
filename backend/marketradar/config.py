@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     )
     sec_base_url: str = "https://data.sec.gov"
     sec_request_timeout_seconds: float = 20.0
+    #: CIKs whose filings are ingested. This is a *watchlist*, not discovery: the system
+    #: monitors the issuers named here. Broadening it to the full registrant universe is a
+    #: scaling problem for a later cycle, and the limitation is surfaced in the UI.
+    sec_ciks: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    #: Cap on filing bodies fetched per run. Each is one rate-limited HTTP request.
+    sec_max_documents: int = 40
 
     news_api_key: str = ""
     market_data_api_key: str = ""
@@ -82,7 +88,7 @@ class Settings(BaseSettings):
     baseline_window_days: int = 90
     duplicate_similarity_threshold: float = 0.60
 
-    @field_validator("cors_origins", "http_allowed_hosts", mode="before")
+    @field_validator("cors_origins", "http_allowed_hosts", "sec_ciks", mode="before")
     @classmethod
     def _parse_list(cls, value: object) -> object:
         """Accept a comma-separated string or a JSON array.

@@ -22,6 +22,7 @@ from marketradar.bus import DomainEvent, get_bus
 from marketradar.config import Settings, get_settings
 from marketradar.domain.enums import DataMode, EntityType, ProviderCapability
 from marketradar.domain.models import Signal, Theme, Trend
+from marketradar.ingestion.companies import CompanySyncReport, sync_companies
 from marketradar.ingestion.pipeline import (
     IngestionReport,
     build_events,
@@ -56,6 +57,7 @@ class PipelineResult:
     themes: list[str] = field(default_factory=list)
     exposures_created: int = 0
     scores_created: int = 0
+    companies: CompanySyncReport = field(default_factory=CompanySyncReport)
     provider_modes: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -76,6 +78,16 @@ def run_pipeline(
         result.provider_modes[health.capability.value] = health.mode.value
         if health.mode == DataMode.UNAVAILABLE:
             result.notes.append(f"{health.capability.value}: {health.detail}")
+
+    # --- 0. company reference data --------------------------------------
+    # Companies must exist before evidence is extracted: entity resolution is built from
+    # them, so a document ingested before its issuer is known would have no attribution.
+    company_provider = registry.company_data
+    company_health = company_provider.health()
+    if company_health.available:
+        result.companies = sync_companies(
+            session, company_provider.list_companies(), company_health.mode
+        )
 
     # --- 1. ingest -----------------------------------------------------
     for capability in (ProviderCapability.NEWS_SEARCH, ProviderCapability.FILINGS):
