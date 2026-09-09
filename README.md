@@ -151,6 +151,8 @@ An edge that was seeded by hand rather than read out of a document prints
 | `Bind for 0.0.0.0:5432 failed: port is already allocated` | another Market Radar stack (or a local Postgres) already holds the port. Either stop it — `docker compose ls` names the running projects — or give this stack its own ports: `export MARKETRADAR_POSTGRES_HOST_PORT=5433 MARKETRADAR_API_HOST_PORT=8001 MARKETRADAR_WEB_HOST_PORT=3001` |
 | `service "bootstrap" didn't complete successfully: exit 1` | the demo bring-up failed. It now prints `bootstrap FAILED during: <step>` — read that line first: `docker compose logs bootstrap`. A one-off CLI command does not need bootstrap at all; use the `cli` service below |
 | A one-off command drags in the whole demo bring-up | `docker compose run --rm api ...` depends on `bootstrap`. Use `docker compose --profile cli run --rm cli ...` instead — it depends only on the database and publishes no host ports |
+| `No such command '<name>'` after a `git pull` | the `cli` service mounts the working tree, so this means the pull did not land. Check `git log --oneline -1`. Only a dependency change (`pyproject.toml`) needs `docker compose build cli`; code changes do not |
+| `api` behaves differently from `cli` after a pull | expected: `cli` runs the working tree so debugging always shows current code, while `api` and `bootstrap` run the built image so `docker compose up` stays reproducible. `docker compose build` realigns them |
 
 ---
 

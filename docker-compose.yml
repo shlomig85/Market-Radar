@@ -108,6 +108,18 @@ services:
     profiles: ["cli"]
     entrypoint: []
     command: ["python", "-m", "marketradar.cli", "--help"]
+    volumes:
+      # The source is mounted over the copy baked into the image, so `git pull` alone is
+      # enough to run new code — no rebuild for an operator command. The package is
+      # installed with `pip install -e .`, so /app/marketradar IS the import path.
+      #
+      # Consequence worth knowing: `cli` then runs the working tree while `api` and
+      # `bootstrap` run the built image, so they can differ. That is the right way round —
+      # `up` stays reproducible, and the debugging tool always shows you current code — but
+      # a dependency change in pyproject.toml still needs `docker compose build`.
+      - ./backend/marketradar:/app/marketradar:ro
+      - ./backend/alembic:/app/alembic:ro
+      - ./backend/alembic.ini:/app/alembic.ini:ro
 
   web:
     build:
