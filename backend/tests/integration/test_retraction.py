@@ -41,6 +41,7 @@ from marketradar.domain.models import (
     ResearchRun,
     Source,
     SourceDocument,
+    Subject,
     Theme,
 )
 from marketradar.entities.relationships import (
@@ -334,3 +335,57 @@ def test_a_finding_that_keeps_support_survives(
 
     assert report.findings_retracted == 0
     assert session.get(ResearchFinding, survivor.id) is not None
+
+
+def test_rebuild_withdraws_everything_derived_but_keeps_documents(
+    session: Session, document: SourceDocument
+) -> None:
+    """The blunt instrument, for when version-gated retraction has not reached the data.
+
+    Three runs in a row a correct fix failed to change stored output, because state
+    accumulated in ways a version bump could not reach. `--rebuild` discards all derived
+    data; documents are the expensive, rate-limited, non-derived part and are kept.
+    """
+    from marketradar.ingestion.retraction import rebuild_derived
+
+    session.add(_evidence(document, EXTRACTOR_NAME, EXTRACTOR_VERSION))
+    session.add(
+        Subject(
+            key="cookie_preference",
+            term="cookie preference",
+            first_seen_at=NOW,
+            last_seen_at=NOW,
+            discovered_at=NOW,
+            is_discovered=True,
+            discovery_version="v1",
+            data_mode=DataMode.LIVE,
+        )
+    )
+    session.flush()
+
+    report = rebuild_derived(session)
+
+    assert report.evidence_retracted >= 1
+    assert session.scalar(select(func.count()).select_from(EvidenceItem)) == 0
+    assert session.scalar(select(func.count()).select_from(Subject)) == 0
+    # Documents survive: rebuilding must never mean re-fetching a rate-limited source.
+    assert session.get(SourceDocument, document.id) is not None
+
+
+def test_rebuild_keeps_hand_curated_edges(
+    session: Session, document: SourceDocument
+) -> None:
+    """A human entered these. No extractor, and no rebuild, may withdraw them."""
+    from marketradar.ingestion.retraction import rebuild_derived
+
+    curated = _edge(None, None, "beta")
+    derived = _edge(None, RELATIONSHIP_EXTRACTOR_VERSION, "gamma")
+    session.add_all([curated, derived])
+    session.flush()
+
+    rebuild_derived(session)
+
+    remaining = {
+        edge.target_entity_key for edge in session.scalars(select(EntityRelationship)).all()
+    }
+    assert remaining == {"beta"}

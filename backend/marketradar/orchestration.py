@@ -35,7 +35,11 @@ from marketradar.ingestion.relationships import (
     RelationshipReport,
     extract_entity_relationships,
 )
-from marketradar.ingestion.retraction import RetractionReport, retract_superseded
+from marketradar.ingestion.retraction import (
+    RetractionReport,
+    rebuild_derived,
+    retract_superseded,
+)
 from marketradar.ingestion.subjects import (
     SubjectReport,
     refresh_subjects,
@@ -86,6 +90,7 @@ def run_pipeline(
     as_of: datetime | None = None,
     settings: Settings | None = None,
     registry: ProviderRegistry | None = None,
+    rebuild: bool = False,
 ) -> PipelineResult:
     """Execute the full deterministic pipeline."""
     settings = settings or get_settings()
@@ -103,7 +108,7 @@ def run_pipeline(
     # improved extractor sees "already done" for every document until the previous version's
     # output is withdrawn. Skipping this is how a fixed pipeline re-runs over a database and
     # leaves a known-wrong edge exactly where it was.
-    result.retraction = retract_superseded(session)
+    result.retraction = rebuild_derived(session) if rebuild else retract_superseded(session)
     result.notes.extend(result.retraction.notes)
 
     # --- 0b. company reference data --------------------------------------

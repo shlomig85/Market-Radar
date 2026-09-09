@@ -69,6 +69,13 @@ MAX_SOURCE_RATIO = 0.5
 #: Per-source detection needs enough documents from that source to mean anything.
 MIN_SOURCE_DOCUMENTS = 4
 
+#: A term in essentially EVERY article a publisher runs is furniture regardless of what
+#: other publishers do — no editorial beat is that total, a page footer always is.
+UNIVERSAL_SOURCE_RATIO = 0.9
+
+#: ...provided the publisher has a real body of work. Nine of ten is meaningless at n=5.
+MIN_UNIVERSAL_DOCUMENTS = 10
+
 #: A term saturating one publisher is furniture only if OTHER publishers barely use it.
 #: Above this share elsewhere, it is a subject that publisher happens to cover heavily.
 FURNITURE_ELSEWHERE_RATIO = 0.1
@@ -360,8 +367,21 @@ def _is_publisher_furniture(
     """
     for source, seen in by_source.items():
         total = source_totals.get(source, 0)
-        if total < MIN_SOURCE_DOCUMENTS or len(seen) / total <= MAX_SOURCE_RATIO:
+        if total < MIN_SOURCE_DOCUMENTS:
             continue
+        share = len(seen) / total
+        if share <= MAX_SOURCE_RATIO:
+            continue
+
+        # Near-total saturation of a source with a real body of work needs no contrast to
+        # judge. A publisher does not write about one topic in essentially EVERY article it
+        # publishes; its footer appears in every one by construction. This closes the
+        # escape hatch below, which otherwise keeps boilerplate whenever one publisher
+        # dominates the corpus — the case where most other feeds' articles failed to
+        # extract and were dropped, leaving nothing to contrast against.
+        if share >= UNIVERSAL_SOURCE_RATIO and total >= MIN_UNIVERSAL_DOCUMENTS:
+            return True
+
         elsewhere_total = sum(
             count for other, count in source_totals.items() if other != source
         )

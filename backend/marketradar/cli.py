@@ -69,6 +69,15 @@ def pipeline(
     as_of: str = typer.Option(
         None, help="ISO timestamp to run as-of. Defaults to now (UTC)."
     ),
+    rebuild: bool = typer.Option(
+        False,
+        "--rebuild",
+        help=(
+            "Discard ALL derived data and rebuild from the stored documents. Use when an "
+            "extractor changed and the normal version-gated retraction has not reached the "
+            "data. Documents are never re-fetched."
+        ),
+    ),
 ) -> None:
     """Run ingest -> cluster -> evidence -> graph -> events -> signals -> trends -> scores."""
     _bootstrap()
@@ -78,7 +87,7 @@ def pipeline(
         else datetime.now(tz=UTC)
     )
     with session_scope() as session:
-        result = run_pipeline(session, as_of=moment)
+        result = run_pipeline(session, as_of=moment, rebuild=rebuild)
 
     if result.retraction.anything_retracted:
         typer.echo(

@@ -172,6 +172,7 @@ An edge that was seeded by hand rather than read out of a document prints
 | "API unreachable" on the dashboard | the backend is not running, or `MARKETRADAR_API_URL` points at the wrong host |
 | "No themes have formed yet" | the pipeline has not run — `make pipeline`. This is also the honest answer whenever nothing is accelerating |
 | Theme page shows no research trace | `make research` has not run for that theme. The panel reflects the database rather than rendering a placeholder |
+| Output still looks wrong after a fix that should have changed it | derived data can persist in ways a version bump does not reach. `marketradar pipeline --rebuild` discards every derived artefact and rebuilds from the stored documents. Documents, sources, companies and hand-curated graph edges are kept, so nothing is re-fetched |
 | A pipeline re-run reports `created=0 skipped=N` and nothing changes | expected when the corpus and the extractors are both unchanged — documents are not re-fetched. If an extractor was *improved*, its version must be bumped: the pipeline then retracts the previous version's output and re-extracts (ADR-017) |
 | Port 3000 or 8000 already in use | change the host side of the port mapping in `docker-compose.yml` |
 | `Bind for 0.0.0.0:5432 failed: port is already allocated` | another Market Radar stack (or a local Postgres) already holds the port. Either stop it — `docker compose ls` names the running projects — or give this stack its own ports: `export MARKETRADAR_POSTGRES_HOST_PORT=5433 MARKETRADAR_API_HOST_PORT=8001 MARKETRADAR_WEB_HOST_PORT=3001` |
@@ -185,7 +186,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 319 tests
+make test              # 321 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
