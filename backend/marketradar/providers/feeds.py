@@ -82,16 +82,22 @@ class FeedDescriptor:
     notes: str | None = None
 
 
-#: A starting set, not a claim about what is best. Every entry is a publicly documented
-#: feed endpoint from an organisation with an editorial or statutory standard; the
-#: government and regulator feeds are first because a primary source outranks reporting of
-#: it, which is exactly what independence scoring is built to reward.
+#: Every entry is free, public, and needs no API key — that is a hard constraint, not a
+#: starting position. Within it the list is ordered by how much a claim from that publisher
+#: is worth: statutory bodies publish the numbers everyone else reports on, industry press
+#: sees a shift in specific language first, and general financial media mostly re-reports
+#: both. The `base_quality` numbers encode exactly that and feed independence scoring.
 #:
-#: These endpoints are NOT reachable from the build environment and so are unverified here.
-#: `marketradar live-check` reports which ones actually answered, and any that do not are
-#: reported UNAVAILABLE rather than quietly contributing nothing.
+#: These endpoints CANNOT be reached from the build environment, so their URLs are
+#: unverified here. That is a real risk and it is handled rather than hidden:
+#: `marketradar feeds` probes every one and reports which answered, and any feed that fails
+#: is UNAVAILABLE rather than quietly contributing nothing. Prune what does not work.
 DEFAULT_FEEDS: tuple[FeedDescriptor, ...] = (
-    # --- primary / statutory ------------------------------------------------
+    # ---------------------------------------------------------------- statutory
+    # Free, public, no key, and the most reliable text about the economy that exists:
+    # these bodies publish the numbers everyone else reports ON. Weighted highest because
+    # independence scoring should treat "the BLS said it" and "an outlet said the BLS said
+    # it" as one confirmation, attributed to the BLS.
     FeedDescriptor(
         key="sec-press",
         name="SEC Press Releases",
@@ -99,7 +105,7 @@ DEFAULT_FEEDS: tuple[FeedDescriptor, ...] = (
         url="https://www.sec.gov/news/pressreleases.rss",
         source_type=SourceType.GOVERNMENT_DATA,
         source_class=SourceClass.REGULATORY,
-        base_quality=95,
+        base_quality=96,
         homepage_url="https://www.sec.gov/news/pressreleases",
     ),
     FeedDescriptor(
@@ -109,40 +115,116 @@ DEFAULT_FEEDS: tuple[FeedDescriptor, ...] = (
         url="https://www.federalreserve.gov/feeds/press_all.xml",
         source_type=SourceType.GOVERNMENT_DATA,
         source_class=SourceClass.GOVERNMENT,
-        base_quality=95,
+        base_quality=96,
         homepage_url="https://www.federalreserve.gov/newsevents.htm",
     ),
     FeedDescriptor(
         key="bls-news",
-        name="Bureau of Labor Statistics News Releases",
+        name="BLS News Releases",
         publisher="U.S. Bureau of Labor Statistics",
         url="https://www.bls.gov/feed/bls_latest.rss",
         source_type=SourceType.GOVERNMENT_DATA,
         source_class=SourceClass.GOVERNMENT,
-        base_quality=93,
+        base_quality=95,
         homepage_url="https://www.bls.gov/bls/newsrels.htm",
     ),
     FeedDescriptor(
+        key="bea-news",
+        name="BEA News Releases",
+        publisher="U.S. Bureau of Economic Analysis",
+        url="https://www.bea.gov/rss.xml",
+        source_type=SourceType.GOVERNMENT_DATA,
+        source_class=SourceClass.GOVERNMENT,
+        base_quality=95,
+        homepage_url="https://www.bea.gov/news/current-releases",
+    ),
+    FeedDescriptor(
         key="census-economic",
-        name="Census Bureau Economic Indicators",
+        name="Census Economic Indicators",
         publisher="U.S. Census Bureau",
         url="https://www.census.gov/economic-indicators/indicator.xml",
         source_type=SourceType.GOVERNMENT_DATA,
         source_class=SourceClass.GOVERNMENT,
-        base_quality=92,
+        base_quality=94,
         homepage_url="https://www.census.gov/economic-indicators/",
     ),
-    # --- financial media ----------------------------------------------------
     FeedDescriptor(
-        key="reuters-business",
-        name="Reuters Business News",
-        publisher="Reuters",
-        url="https://www.reutersagency.com/feed/?best-topics=business-finance",
-        source_type=SourceType.MAJOR_FINANCIAL_MEDIA,
-        source_class=SourceClass.FINANCIAL_MEDIA,
-        base_quality=80,
-        homepage_url="https://www.reuters.com/business/",
+        key="treasury-press",
+        name="U.S. Treasury Press Releases",
+        publisher="U.S. Department of the Treasury",
+        url="https://home.treasury.gov/rss/press.xml",
+        source_type=SourceType.GOVERNMENT_DATA,
+        source_class=SourceClass.GOVERNMENT,
+        base_quality=94,
+        homepage_url="https://home.treasury.gov/news/press-releases",
     ),
+    FeedDescriptor(
+        key="eia-today",
+        name="EIA Today in Energy",
+        publisher="U.S. Energy Information Administration",
+        url="https://www.eia.gov/rss/todayinenergy.xml",
+        source_type=SourceType.GOVERNMENT_DATA,
+        source_class=SourceClass.GOVERNMENT,
+        base_quality=93,
+        homepage_url="https://www.eia.gov/todayinenergy/",
+    ),
+    FeedDescriptor(
+        key="ecb-press",
+        name="ECB Press Releases",
+        publisher="European Central Bank",
+        url="https://www.ecb.europa.eu/rss/press.html",
+        source_type=SourceType.GOVERNMENT_DATA,
+        source_class=SourceClass.GOVERNMENT,
+        base_quality=93,
+        homepage_url="https://www.ecb.europa.eu/press/",
+    ),
+    # ------------------------------------------------------ industry / technical
+    # Free and public, with real editorial and domain expertise. These are where a shift
+    # shows up in specific language ("lead times extended", "capacity committed") long
+    # before it reaches general media — which is the whole point of watching them.
+    FeedDescriptor(
+        key="semiengineering",
+        name="Semiconductor Engineering",
+        publisher="Semiconductor Engineering",
+        url="https://semiengineering.com/feed/",
+        source_type=SourceType.TECHNICAL_PUBLICATION,
+        source_class=SourceClass.TECHNICAL,
+        base_quality=80,
+        homepage_url="https://semiengineering.com/",
+    ),
+    FeedDescriptor(
+        key="eetimes",
+        name="EE Times",
+        publisher="EE Times",
+        url="https://www.eetimes.com/feed/",
+        source_type=SourceType.SPECIALIST_PUBLICATION,
+        source_class=SourceClass.INDUSTRY,
+        base_quality=76,
+        homepage_url="https://www.eetimes.com/",
+    ),
+    FeedDescriptor(
+        key="ieee-spectrum",
+        name="IEEE Spectrum",
+        publisher="IEEE",
+        url="https://spectrum.ieee.org/feeds/feed.rss",
+        source_type=SourceType.TECHNICAL_PUBLICATION,
+        source_class=SourceClass.TECHNICAL,
+        base_quality=78,
+        homepage_url="https://spectrum.ieee.org/",
+    ),
+    FeedDescriptor(
+        key="arstechnica",
+        name="Ars Technica",
+        publisher="Ars Technica",
+        url="https://feeds.arstechnica.com/arstechnica/technology-lab",
+        source_type=SourceType.TECHNICAL_PUBLICATION,
+        source_class=SourceClass.TECHNICAL,
+        base_quality=72,
+        homepage_url="https://arstechnica.com/",
+    ),
+    # ---------------------------------------------------------- financial media
+    # Lowest weight on purpose. General media mostly REPORTS the sources above, and the
+    # ancestry clustering exists so that ten such reports of one release count once.
     FeedDescriptor(
         key="cnbc-technology",
         name="CNBC Technology",
@@ -150,7 +232,7 @@ DEFAULT_FEEDS: tuple[FeedDescriptor, ...] = (
         url="https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910",
         source_type=SourceType.MAJOR_FINANCIAL_MEDIA,
         source_class=SourceClass.FINANCIAL_MEDIA,
-        base_quality=72,
+        base_quality=70,
         homepage_url="https://www.cnbc.com/technology/",
     ),
     FeedDescriptor(
@@ -160,39 +242,8 @@ DEFAULT_FEEDS: tuple[FeedDescriptor, ...] = (
         url="https://feeds.content.dowjones.io/public/rss/mw_topstories",
         source_type=SourceType.MAJOR_FINANCIAL_MEDIA,
         source_class=SourceClass.FINANCIAL_MEDIA,
-        base_quality=70,
+        base_quality=68,
         homepage_url="https://www.marketwatch.com/",
-    ),
-    # --- industry and technical --------------------------------------------
-    FeedDescriptor(
-        key="eetimes",
-        name="EE Times",
-        publisher="EE Times",
-        url="https://www.eetimes.com/feed/",
-        source_type=SourceType.SPECIALIST_PUBLICATION,
-        source_class=SourceClass.INDUSTRY,
-        base_quality=75,
-        homepage_url="https://www.eetimes.com/",
-    ),
-    FeedDescriptor(
-        key="semiengineering",
-        name="Semiconductor Engineering",
-        publisher="Semiconductor Engineering",
-        url="https://semiengineering.com/feed/",
-        source_type=SourceType.TECHNICAL_PUBLICATION,
-        source_class=SourceClass.TECHNICAL,
-        base_quality=78,
-        homepage_url="https://semiengineering.com/",
-    ),
-    FeedDescriptor(
-        key="arstechnica",
-        name="Ars Technica",
-        publisher="Ars Technica",
-        url="https://feeds.arstechnica.com/arstechnica/technology-lab",
-        source_type=SourceType.TECHNICAL_PUBLICATION,
-        source_class=SourceClass.TECHNICAL,
-        base_quality=70,
-        homepage_url="https://arstechnica.com/",
     ),
 )
 
@@ -233,6 +284,23 @@ _NS = {
 
 #: Feeds date-stamp in RFC 822 (RSS) or RFC 3339 (Atom), with wide variation in practice.
 _ISO_CLEAN = re.compile(r"(?<=[+-]\d{2})(?=\d{2}$)")
+
+
+@dataclass(frozen=True)
+class FeedProbe:
+    """What one feed returned when it was last checked."""
+
+    feed: FeedDescriptor
+    reachable: bool
+    item_count: int = 0
+    newest: datetime | None = None
+    error: str | None = None
+
+    @property
+    def status(self) -> str:
+        if not self.reachable:
+            return f"FAILED: {self.error or 'unknown error'}"
+        return "ok" if self.item_count else "reachable but empty"
 
 
 @dataclass(frozen=True)
@@ -499,6 +567,31 @@ class RssFeedProvider:
             ),
         )
 
+    def probe(self) -> list[FeedProbe]:
+        """Check every subscribed feed and report what it returned.
+
+        Feed URLs rot — publishers move endpoints, drop RSS, or put a wall in front of one.
+        A dead feed contributes nothing and, without a probe, contributes nothing *silently*,
+        which is indistinguishable from a quiet news day. Fetching the feed only, never the
+        articles, so this stays cheap enough to run whenever something looks wrong.
+        """
+        results: list[FeedProbe] = []
+        for feed in self._feeds:
+            try:
+                items = self._fetch_feed(feed)
+            except Exception as exc:  # noqa: BLE001 - reporting the failure IS the job
+                results.append(FeedProbe(feed=feed, reachable=False, error=str(exc)))
+                continue
+            results.append(
+                FeedProbe(
+                    feed=feed,
+                    reachable=True,
+                    item_count=len(items),
+                    newest=max((item.published_at for item in items), default=None),
+                )
+            )
+        return results
+
     def get_document(self, external_id: str) -> ProviderDocument | None:
         for document in self.get_recent_documents(limit=1000).documents:
             if document.external_id == external_id:
@@ -561,6 +654,7 @@ __all__ = [
     "MIN_SUMMARY_WORDS",
     "FeedDescriptor",
     "FeedItem",
+    "FeedProbe",
     "parse_datetime",
     "parse_feed",
     "parse_feed_spec",

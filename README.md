@@ -112,6 +112,22 @@ make web          # http://localhost:3000
 `make all` runs the whole chain from an empty database to a rendered report.
 `make help` lists every target.
 
+To check which news sources are actually answering:
+
+```bash
+make docker-cli cmd="feeds"         # or: cd backend && python -m marketradar.cli feeds
+```
+
+Every source is free and public — no API keys anywhere. The list is weighted toward
+statutory bodies (SEC, Federal Reserve, BLS, BEA, Census, Treasury, EIA, ECB), because they
+publish the numbers everyone else reports *on*; industry and technical press sit below them,
+and general financial media lowest, since it mostly re-reports both. Ancestry clustering
+then counts ten outlets rewriting one release as **one** confirmation.
+
+Feed URLs rot. `feeds` probes each one and prints what it returned, so a dead endpoint is a
+five-second discovery rather than a quiet absence. Replace the list entirely with
+`MARKETRADAR_FEEDS` — which sources you trust is your call, not ours.
+
 To see the knowledge graph and what each edge rests on:
 
 ```bash
@@ -141,7 +157,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 265 tests
+make test              # 269 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```

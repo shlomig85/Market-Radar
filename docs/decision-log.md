@@ -393,8 +393,17 @@ brittle, usually against terms of service, and gives no reliability signal at al
 Quality is *declared per publisher* rather than inferred, so independence scoring can already tell a
 statutory source from a personal blog — the machinery for that existed and had nothing real to score.
 
+**Free and public is a hard constraint** (stated by the operator, 2026-09-09): no entry in the
+default list requires an API key, a subscription or a login, and a test asserts it. Reliability is
+therefore bought with *source class* rather than with money — statutory bodies (SEC, Federal Reserve,
+BLS, BEA, Census, Treasury, EIA, ECB) carry the list at quality 93–96, industry and technical press
+sit at 72–80, and general financial media lowest at 68–70 because it mostly re-reports the first two.
+Ancestry clustering then collapses those re-reports into one confirmation, attributed upstream.
+
 **Cost.** Feeds cover recent items only, so there is no archive and no backfill: the corpus starts
-the day ingestion starts. Feeds have no server-side search, so `search()` is a client-side filter
+the day ingestion starts. Feed URLs also rot, and a dead feed is indistinguishable from a quiet news
+day — `marketradar feeds` probes every subscribed endpoint and reports what it returned, because the
+default URLs cannot be verified from the build environment and should be pruned by whoever runs it. Feeds have no server-side search, so `search()` is a client-side filter
 over recent items and says so rather than implying it searched the web. The default publisher list
 is unverified from the build environment — `live-check` reports which feeds actually answered, and
 the list is a starting point rather than a recommendation. Article extraction is heuristic; a

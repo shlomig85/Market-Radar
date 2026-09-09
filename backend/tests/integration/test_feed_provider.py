@@ -323,3 +323,81 @@ def test_a_feed_can_be_configured_without_touching_the_code() -> None:
 def test_a_malformed_feed_spec_fails_loudly() -> None:
     with pytest.raises(ValueError, match="7 pipe-separated fields"):
         parse_feed_spec("myblog|My Blog|https://blog.test/rss")
+
+
+# ------------------------------------------------------------------- probe
+def test_probe_reports_each_feed_separately() -> None:
+    """A dead feed must be visible, not silent — silence looks like a quiet news day."""
+    broken = FeedDescriptor(
+        key="broken",
+        name="Broken",
+        publisher="Nobody",
+        url="https://journal.test/missing.xml",
+        source_type=SourceType.SPECIALIST_PUBLICATION,
+        source_class=SourceClass.INDUSTRY,
+        base_quality=50,
+    )
+    provider = RssFeedProvider(
+        _client(_serving(**{"https://example.test/feed.xml": RSS})),
+        feeds=(FEED, broken),
+    )
+    probes = {probe.feed.key: probe for probe in provider.probe()}
+
+    assert probes["example-wire"].reachable
+    assert probes["example-wire"].item_count == 1
+    assert probes["example-wire"].newest == datetime(2026, 9, 8, 14, 30, tzinfo=UTC)
+    assert probes["example-wire"].status == "ok"
+
+    assert not probes["broken"].reachable
+    assert probes["broken"].status.startswith("FAILED")
+
+
+def test_probe_distinguishes_empty_from_unreachable() -> None:
+    """A publisher with nothing new and a publisher that is gone are different facts."""
+    provider = RssFeedProvider(
+        _client(
+            _serving(
+                **{
+                    "https://example.test/feed.xml": (
+                        '<rss version="2.0"><channel><title>Quiet</title></channel></rss>'
+                    )
+                }
+            )
+        ),
+        feeds=(FEED,),
+    )
+    probe = provider.probe()[0]
+    assert probe.reachable
+    assert probe.item_count == 0
+    assert probe.status == "reachable but empty"
+
+
+def test_probe_never_fetches_articles() -> None:
+    """It must stay cheap enough to run whenever something looks wrong."""
+    fetched: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        fetched.append(str(request.url))
+        if str(request.url) == "https://example.test/feed.xml":
+            return httpx.Response(200, text=RSS)
+        return httpx.Response(200, text=ARTICLE)
+
+    RssFeedProvider(_client(handler), feeds=(FEED,)).probe()
+    assert fetched == ["https://example.test/feed.xml"]
+
+
+def test_the_default_list_is_weighted_toward_free_primary_sources() -> None:
+    """Free and public is a hard constraint; reliability is bought with source class."""
+    government = [
+        f
+        for f in DEFAULT_FEEDS
+        if f.source_class in (SourceClass.GOVERNMENT, SourceClass.REGULATORY)
+    ]
+    assert len(government) >= len(DEFAULT_FEEDS) / 2, (
+        "statutory bodies publish the numbers everyone else reports on; they should carry "
+        "the list"
+    )
+    # No entry may need a key or a subscription: the URL must be fetchable as-is.
+    for feed in DEFAULT_FEEDS:
+        assert "api_key" not in feed.url and "apikey" not in feed.url.lower(), feed.key
+        assert "token" not in feed.url.lower(), feed.key

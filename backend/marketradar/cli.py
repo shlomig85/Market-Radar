@@ -366,6 +366,48 @@ def sync_companies_command() -> None:
 
 
 @app.command()
+def feeds() -> None:
+    """Probe every subscribed feed and report what each one actually returned.
+
+    Feed URLs rot: publishers move endpoints, drop RSS, or put a wall in front of it. A
+    dead feed contributes nothing and, without this, contributes nothing *silently* — which
+    looks identical to a quiet news day. This turns that into a five-second check.
+    """
+    _bootstrap()
+    settings = get_settings()
+    if settings.news_provider not in {"feeds", "rss"}:
+        typer.echo(
+            f"News provider is '{settings.news_provider}'. "
+            "Set MARKETRADAR_NEWS_PROVIDER=feeds to use subscribed feeds.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    probes = build_default_registry(settings).news.probe()
+
+    typer.echo(f"{'FEED':<24}{'QUALITY':<9}{'ITEMS':<7}{'NEWEST':<12}STATUS")
+    typer.echo("-" * 88)
+    for probe in probes:
+        newest = probe.newest.date().isoformat() if probe.newest else "-"
+        items = str(probe.item_count) if probe.reachable else "-"
+        typer.echo(
+            f"{probe.feed.key:<24}{probe.feed.base_quality:<9}{items:<7}{newest:<12}"
+            f"{probe.status[:44]}"
+        )
+
+    reachable = sum(1 for probe in probes if probe.reachable)
+    typer.echo("-" * 88)
+    typer.echo(f"{reachable}/{len(probes)} feeds reachable.")
+    if reachable == 0:
+        typer.echo(
+            "No feed answered. Check network access, then MARKETRADAR_FEED_USER_AGENT — "
+            "some publishers refuse requests that do not identify themselves.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def graph(
     company: str = typer.Option(None, help="Only edges touching this company key."),
     limit: int = typer.Option(40, help="Maximum edges to print."),
