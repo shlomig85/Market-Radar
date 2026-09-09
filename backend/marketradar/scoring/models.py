@@ -121,3 +121,27 @@ CONFIDENCE_V1 = ScoreModelSpec(
 )
 
 ALL_MODELS: tuple[ScoreModelSpec, ...] = (TREND_V1, OPPORTUNITY_V1, CONFIDENCE_V1)
+
+
+COMPANY_TREND_V1 = ScoreModelSpec(
+    name="company_trend_score",
+    version="1.0.0",
+    description=(
+        "How strongly a company is implicated in something that is measurably changing. "
+        "Presented to a reader on a 0-10 scale; stored 0-100 like every other score so the "
+        "components remain comparable across models."
+    ),
+    components=(
+        ComponentSpec("theme_trend", "Theme trend strength", 0.35,
+                      "Trend score of the strongest theme the company is exposed to."),
+        ComponentSpec("theme_acceleration", "Theme acceleration", 0.20,
+                      "How fast that theme is moving against its own baseline."),
+        ComponentSpec("exposure", "Company exposure", 0.25,
+                      "Strength of the causal path from the theme to this company."),
+        ComponentSpec("corroboration", "Independent corroboration", 0.15,
+                      "Independent evidence clusters behind the theme, not article count."),
+        ComponentSpec("price_confirmation", "Price confirmation", 0.05,
+                      "Whether price action agrees. Requires market data."),
+    ),
+)
+

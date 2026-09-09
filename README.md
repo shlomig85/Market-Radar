@@ -112,6 +112,22 @@ make web          # http://localhost:3000
 `make all` runs the whole chain from an empty database to a rendered report.
 `make help` lists every target.
 
+To see companies ranked by how strongly they are caught up in something changing:
+
+```bash
+make docker-cli cmd="trending"
+```
+
+The rating is **0-10**, aggregated from theme trend, exposure strength and independent
+corroboration — every input already stored with its own evidence trail. Two things on every
+row are deliberate: `MODE` says whether a rating rests on real or synthetic evidence, and
+`DIR` says whether a rising theme is a **tailwind** or a **headwind** for that company. A
+competitor of a beneficiary is exposed to the same move and does not benefit from it.
+
+Price confirmation is `UNAVAILABLE` — there is no market-data provider — so its weight is
+redistributed rather than estimated, and the rating cannot tell an unnoticed move from one
+already priced in.
+
 To see what the corpus turned out to be about — topics found, not declared:
 
 ```bash
@@ -169,7 +185,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 300 tests
+make test              # 311 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -210,7 +226,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 19 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 20 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
 | `docs/research-pipeline.md` | the deterministic pipeline and the research loop |

@@ -443,3 +443,35 @@ labelled set saying which topics a corpus "should" yield, so the qualifying thre
 (3 clusters, 0.75 document ratio above 20 documents) are reasoned, not calibrated. Discovery also
 cannot name a topic in words the corpus does not use, and with no feed archive the corpus begins the
 day ingestion begins, so emergence is weak until history accumulates.
+
+---
+
+## ADR-020 — The 0-10 trend rating aggregates stored measurements; it never adds a new one
+
+**Decision.** `scoring/company_trend.py` rates companies 0-10 from four components — theme trend,
+theme acceleration, exposure strength, independent corroboration — plus a fifth, price
+confirmation, that is **UNAVAILABLE** and has its weight redistributed. The rating is the stored
+0-100 score divided by ten, to one decimal. The *strongest* theme sets a company's rating; further
+themes add a bounded bonus (max +18%). Companies exposed as competitors or substitutes are labelled
+`headwind`, not `tailwind`.
+
+**Alternatives.** (a) Sum contributions across every theme. (b) Rate on raw evidence volume. (c)
+Report the rating to two decimals.
+
+**Why.** (a) lets a company weakly adjacent to five unrelated themes outrank one at the centre of a
+real move, purely on breadth — a ranking artefact, not a finding. Breadth is corroborating, so it
+adds a capped bonus instead. (b) is the failure this whole system is built against: volume is
+mostly syndication, and corroboration is therefore counted in independent ancestry clusters. (c)
+would imply precision no component has; the inputs are reasoned weights over rule-extracted
+evidence, so a second decimal is decoration.
+
+The headwind label matters more than it looks. A competitor of a beneficiary is genuinely exposed to
+a rising theme and does not benefit from it. Listing both under one "trending" heading is the single
+most misleading thing this output could do, so direction is carried on every row.
+
+**Cost.** The component weights (0.35 / 0.20 / 0.25 / 0.15 / 0.05) are reasoned, not calibrated
+against outcomes — `docs/evaluation-plan.md` holds the backtest that would validate them, and it is
+not built. Without market data, price confirmation is never available, so in practice the rating
+runs on four components and cannot tell an unnoticed move from one already priced in. And because
+feeds carry no archive, acceleration is weak until a corpus accumulates: early ratings measure a
+short history and should be read as provisional.

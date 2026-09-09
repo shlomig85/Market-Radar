@@ -63,7 +63,7 @@ class FormedTheme:
     created: bool = False
 
 
-def _independent_sources_in_window(
+def independent_sources_in_window(
     session: Session, signal: Signal, start: datetime, end: datetime
 ) -> int:
     """Distinct evidence clusters supporting a signal across the whole window.
@@ -133,7 +133,7 @@ def form_themes(
                 acceleration=trend.acceleration,
             )
             continue
-        independent = _independent_sources_in_window(
+        independent = independent_sources_in_window(
             session, signal, trend.observation_start, trend.observation_end
         )
         if independent < min_independent_sources:

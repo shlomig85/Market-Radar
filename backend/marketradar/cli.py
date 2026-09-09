@@ -376,6 +376,58 @@ def sync_companies_command() -> None:
 
 
 @app.command()
+def trending(
+    limit: int = typer.Option(20, help="How many companies to show."),
+    include_headwinds: bool = typer.Option(
+        True, help="Include companies a rising theme works AGAINST."
+    ),
+) -> None:
+    """Companies ranked by how strongly they are caught up in something that is changing.
+
+    The rating is 0-10. It is an aggregation of things already measured and stored — theme
+    trend, exposure path, independent corroboration — so every row can be taken apart into
+    the reasons for it with `marketradar show`.
+    """
+    _bootstrap()
+    from marketradar.scoring.company_trend import rate_companies
+
+    with session_scope() as session:
+        ratings = rate_companies(session, as_of=datetime.now(tz=UTC), persist=False)
+        if not include_headwinds:
+            ratings = [r for r in ratings if r.direction == "tailwind"]
+        if not ratings:
+            typer.echo(
+                "No companies are rated. Either the pipeline has not run, or no theme has "
+                "formed yet — which is the honest answer whenever nothing is accelerating."
+            )
+            return
+
+        typer.echo(
+            f"{'':<3}{'TICKER':<8}{'COMPANY':<32}{'RATING':<9}{'DIR':<10}{'MODE':<7}THEME"
+        )
+        typer.echo("-" * 104)
+        for position, rating in enumerate(ratings[:limit], start=1):
+            typer.echo(
+                f"{position:<3}{rating.ticker or '-':<8}{rating.company_name[:31]:<32}"
+                f"{rating.rating:<9.1f}{rating.direction:<10}{rating.data_mode.value:<7}"
+                f"{rating.theme_name[:34]}"
+            )
+        typer.echo("-" * 104)
+
+        demo = sum(1 for r in ratings[:limit] if r.data_mode.value == "DEMO")
+        if demo:
+            typer.echo(
+                f"{demo} of these rest on the synthetic DEMO corpus — fictional issuers, "
+                "not investable. Run with real providers configured for live ratings."
+            )
+        typer.echo(
+            "Rating 0-10 from theme trend, exposure and independent corroboration. "
+            "Price confirmation is UNAVAILABLE (no market-data provider), so its weight is "
+            "redistributed rather than guessed."
+        )
+
+
+@app.command()
 def subjects(
     limit: int = typer.Option(30, help="Maximum subjects to print."),
     discovered_only: bool = typer.Option(False, help="Hide the built-in lexicon subjects."),

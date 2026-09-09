@@ -48,6 +48,7 @@ from marketradar.mapping.value_chain import Anchor
 from marketradar.providers import ProviderRegistry, build_default_registry
 from marketradar.providers.base import ProviderQuery
 from marketradar.scoring import persist_score
+from marketradar.scoring.company_trend import rate_companies
 from marketradar.signals.definitions import (
     SIGNAL_DEFINITIONS,
     definitions_for_subjects,
@@ -71,6 +72,7 @@ class PipelineResult:
     themes: list[str] = field(default_factory=list)
     exposures_created: int = 0
     scores_created: int = 0
+    companies_rated: int = 0
     companies: CompanySyncReport = field(default_factory=CompanySyncReport)
     relationships: RelationshipReport = field(default_factory=RelationshipReport)
     retraction: RetractionReport = field(default_factory=RetractionReport)
@@ -201,6 +203,12 @@ def run_pipeline(
         _finalise_theme(session, theme_result, as_of, result)
         result.themes.append(theme_result.theme.slug)
     get_bus().publish(DomainEvent.THEME_UPDATED, {"themes": result.themes})
+
+    # --- 6. trending companies -----------------------------------------
+    # Runs last because it aggregates what every earlier stage produced. It introduces no
+    # new measurement: a rating is theme trend, exposure and independent corroboration,
+    # each already stored with its own evidence trail.
+    result.companies_rated = len(rate_companies(session, as_of=as_of))
 
     log.info(
         "pipeline.complete",
