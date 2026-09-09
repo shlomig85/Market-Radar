@@ -367,3 +367,36 @@ to carry a citation. Research reports are *not* deleted: a report is a published
 destroying one is worse than telling its reader it is stale, so retraction counts them and says so.
 Until the report is re-run it may cite evidence that no longer exists.
 
+
+---
+
+## ADR-018 — Discovery starts with subscribed feeds from declared-quality publishers
+
+**Decision.** News and blog ingestion is an RSS/Atom feed provider (`providers/feeds.py`) over a
+list of publishers, each carrying its own `base_quality` and `SourceClass`. The default list ships
+in code as a starting point; `MARKETRADAR_FEEDS` replaces it entirely. Article bodies are fetched
+and extracted; when an article cannot be retrieved the publisher's own abstract is stored instead,
+labelled `body_source: "summary"`. A feed that fails is `UNAVAILABLE`, never an empty result.
+
+**Alternatives.** (a) Keep the CIK watchlist and add nothing. (b) A general web crawler. (c) A paid
+news or web-search API. (d) Scrape search-engine results.
+
+**Why.** The system could only see companies someone had typed into `MARKETRADAR_SEC_CIKS`, which
+makes discovery impossible by construction — you cannot find a trend you had to name first. Feeds
+are the cheapest honest fix: a feed is a publisher's own declaration of what it published *and
+when*, so `published_at` is stated rather than guessed, which matters because every as-of read
+depends on knowing when something became knowable. A crawler (b) would have to infer publication
+time, which is exactly the guess that fabricates urgency. (c) remains a drop-in behind the same
+provider interface and needs a key the operator may not have; nothing here forecloses it. (d) is
+brittle, usually against terms of service, and gives no reliability signal at all.
+
+Quality is *declared per publisher* rather than inferred, so independence scoring can already tell a
+statutory source from a personal blog — the machinery for that existed and had nothing real to score.
+
+**Cost.** Feeds cover recent items only, so there is no archive and no backfill: the corpus starts
+the day ingestion starts. Feeds have no server-side search, so `search()` is a client-side filter
+over recent items and says so rather than implying it searched the web. The default publisher list
+is unverified from the build environment — `live-check` reports which feeds actually answered, and
+the list is a starting point rather than a recommendation. Article extraction is heuristic; a
+paywall yields an abstract, and an abstract supports weaker claims than an article, which is why the
+distinction is recorded on every document.

@@ -74,13 +74,28 @@ def prose_only(text: str) -> str:
     """
     kept: list[str] = []
     for line in text.split("\n"):
-        if len(line) > MAX_SENTENCE_CHARS:
-            continue
         letters = sum(c.isalpha() for c in line)
         if letters < 20:
             continue
         # A line more than half digits and punctuation is a table row.
         if letters / max(len(line), 1) < 0.5:
             continue
+        # Long lines are suspicious but not automatically junk. Filings are hard-wrapped, so
+        # a very long line there is usually a flattened table; web articles are NOT wrapped,
+        # so a whole paragraph arrives as one line and dropping it on length alone discarded
+        # entire article bodies. Sentence punctuation is what separates the two: prose is
+        # punctuated at a human rate, a flattened table is not.
+        if len(line) > MAX_SENTENCE_CHARS and not _is_punctuated_prose(line):
+            continue
         kept.append(line)
     return "\n".join(kept)
+
+
+#: Roughly one sentence terminator per this many characters. Ordinary prose runs far denser
+#: (a 25-word sentence is ~150 chars); a flattened table has almost none.
+MAX_CHARS_PER_SENTENCE_END = 400
+
+
+def _is_punctuated_prose(line: str) -> bool:
+    terminators = sum(line.count(mark) for mark in ".!?")
+    return terminators >= len(line) / MAX_CHARS_PER_SENTENCE_END

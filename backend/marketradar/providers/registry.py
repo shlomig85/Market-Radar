@@ -7,16 +7,24 @@ never names a vendor, which is what keeps providers replaceable (Master Build Pr
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
 
 from marketradar.config import Settings, get_settings
 from marketradar.domain.enums import ProviderCapability
 from marketradar.logging import get_logger
 from marketradar.providers.base import ProviderHealth
+from marketradar.providers.feeds import (
+    DEFAULT_FEEDS,
+    FeedDescriptor,
+    RssFeedProvider,
+    parse_feed_spec,
+)
 from marketradar.providers.fixture import (
     FixtureCompanyProvider,
     FixtureFilingsProvider,
     FixtureNewsProvider,
 )
+from marketradar.providers.http import RateLimiter, SafeHttpClient
 from marketradar.providers.sec_edgar import SecCompanyProvider, SecEdgarFilingsProvider
 from marketradar.providers.unavailable import UnavailableProvider
 
@@ -68,10 +76,56 @@ class ProviderRegistry:
 def _build_news(settings: Settings) -> Any:
     if settings.news_provider == "fixture":
         return FixtureNewsProvider()
+    if settings.news_provider in {"feeds", "rss"}:
+        feeds = (
+            tuple(parse_feed_spec(spec) for spec in settings.feeds)
+            if settings.feeds
+            else DEFAULT_FEEDS
+        )
+        return RssFeedProvider(
+            client=SafeHttpClient(
+                # Every subscribed feed's host is allowed implicitly: subscribing to a feed
+                # IS the decision to fetch it, and requiring the host to be repeated in the
+                # SSRF allowlist would be a footgun that fails at runtime, not startup.
+                allowed_hosts=[*settings.http_allowed_hosts, *_feed_hosts(feeds)],
+                timeout_seconds=settings.sec_request_timeout_seconds,
+                headers={
+                    "User-Agent": settings.feed_user_agent or settings.sec_user_agent,
+                    "Accept": (
+                        "application/rss+xml, application/atom+xml, "
+                        "application/xml, text/html"
+                    ),
+                },
+                # Publishers are not the SEC and publish no fair-access rate; one request a
+                # second across all feeds is polite by any reasonable reading.
+                rate_limiter=RateLimiter(max_requests=1, per_seconds=1.0),
+            ),
+            feeds=feeds,
+            max_items_per_feed=settings.feed_max_items,
+        )
     return UnavailableProvider(
         ProviderCapability.NEWS_SEARCH,
         f"News provider '{settings.news_provider}' is not implemented in this build.",
     )
+
+
+def _feed_hosts(feeds: tuple[FeedDescriptor, ...]) -> tuple[str, ...]:
+    """Hosts of subscribed feeds, plus the hosts their articles live on.
+
+    An article link routinely sits on a different host from the feed endpoint
+    (``feeds.arstechnica.com`` -> ``arstechnica.com``), so the registration is per feed host
+    and its parent domain rather than per exact URL.
+    """
+    hosts: set[str] = set()
+    for feed in feeds:
+        host = urlparse(feed.url).hostname or ""
+        if not host:
+            continue
+        hosts.add(host)
+        labels = host.split(".")
+        if len(labels) > 2:
+            hosts.add(".".join(labels[-2:]))
+    return tuple(sorted(hosts))
 
 
 def _build_filings(settings: Settings) -> Any:

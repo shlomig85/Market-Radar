@@ -141,7 +141,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 242 tests
+make test              # 265 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -182,7 +182,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 17 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 18 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
 | `docs/research-pipeline.md` | the deterministic pipeline and the research loop |

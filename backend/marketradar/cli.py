@@ -15,6 +15,7 @@ from sqlalchemy import select
 from marketradar.config import get_settings
 from marketradar.db.session import session_scope
 from marketradar.demo.loader import seed_demo_universe
+from marketradar.domain.enums import DataMode
 from marketradar.domain.models import (
     Company,
     Event,
@@ -275,6 +276,7 @@ def live_check() -> None:
     typer.echo(f"Company provider: {settings.company_provider}")
     typer.echo(f"Filings provider: {settings.filings_provider}")
     typer.echo(f"Watchlist CIKs  : {', '.join(settings.sec_ciks) or '(none configured)'}")
+    typer.echo(f"News provider   : {settings.news_provider}")
     typer.echo("-" * 78)
 
     failures = 0
@@ -296,6 +298,32 @@ def live_check() -> None:
                 f"  {company.ticker or '-':<6} {company.name[:44]:<46}"
                 f"cik={company.cik} mode={company.data_mode.value}"
             )
+
+    news_provider = registry.news
+    news_health = news_provider.health()
+    if news_health.available and settings.news_provider in {"feeds", "rss"}:
+        # Reported per feed, because "the news provider works" is not a useful statement
+        # when ten independent publishers are involved and three of them are down.
+        typer.echo("\nSubscribed feeds:")
+        for source in news_provider.sources():
+            typer.echo(
+                f"  {source.key:<24}q={source.base_quality:<4}{source.source_class.value:<18}"
+                f"{source.publisher[:34]}"
+            )
+        result = news_provider.get_recent_documents(limit=5)
+        typer.echo(f"\nArticles fetched: {result.count} (mode {result.mode.value})")
+        if result.detail:
+            typer.echo(f"  {result.detail[:150]}")
+        for document in result.documents:
+            words = len(document.body_text.split())
+            body_source = (document.payload or {}).get("body_source", "?")
+            typer.echo(
+                f"  {document.published_at.date()} {document.title[:52]:<54}"
+                f"{words} words ({body_source})"
+            )
+            typer.echo(f"     {document.url[:96]}")
+        if result.mode == DataMode.UNAVAILABLE:
+            failures += 1
 
     filings_provider = registry.filings
     if filings_provider.health().available and settings.sec_ciks:

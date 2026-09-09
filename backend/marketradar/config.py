@@ -67,6 +67,23 @@ class Settings(BaseSettings):
     #: Cap on filing bodies fetched per run. Each is one rate-limited HTTP request.
     sec_max_documents: int = 40
 
+    #: Subscribed feeds, as ``key|name|publisher|url|SOURCE_TYPE|SOURCE_CLASS|quality``
+    #: entries. Empty means "use the built-in list of reliable publishers"; setting it
+    #: replaces that list entirely, because which sources are trustworthy is the operator's
+    #: judgement, not a constant in this repository.
+    feeds: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    #: Items taken per feed per run. Each item may cost one article fetch.
+    feed_max_items: int = 40
+    #: Contact string sent as User-Agent when fetching feeds and articles. Publishers block
+    #: anonymous scrapers, and identifying the client is the honest thing to do regardless.
+    feed_user_agent: str = Field(
+        default="",
+        description=(
+            "Descriptive User-Agent with contact details, "
+            "e.g. 'Market Radar you@example.com'."
+        ),
+    )
+
     news_api_key: str = ""
     market_data_api_key: str = ""
 
@@ -88,7 +105,7 @@ class Settings(BaseSettings):
     baseline_window_days: int = 90
     duplicate_similarity_threshold: float = 0.60
 
-    @field_validator("cors_origins", "http_allowed_hosts", "sec_ciks", mode="before")
+    @field_validator("cors_origins", "http_allowed_hosts", "sec_ciks", "feeds", mode="before")
     @classmethod
     def _parse_list(cls, value: object) -> object:
         """Accept a comma-separated string or a JSON array.

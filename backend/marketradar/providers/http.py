@@ -78,14 +78,21 @@ class SafeHttpClient:
         transport: httpx.BaseTransport | None = None,
         rate_limiter: RateLimiter | None = None,
         max_response_bytes: int = 25 * 1024 * 1024,
+        max_redirects: int = 5,
     ) -> None:
         self._allowed_hosts = {h.lower() for h in allowed_hosts}
         self._rate_limiter = rate_limiter
         self._max_response_bytes = max_response_bytes
+        self._max_redirects = max_redirects
         self._client = httpx.Client(
             timeout=timeout_seconds,
             headers=headers or {},
-            follow_redirects=False,  # a redirect could leave the allowlist
+            # Redirects are followed HERE, not by httpx, so that every hop is re-checked
+            # against the allowlist. Delegating to httpx would let a redirect walk the
+            # client off the allowlist in a single call, which is the SSRF hole this class
+            # exists to close; refusing redirects outright is not an option either, because
+            # ordinary feed and article URLs redirect constantly.
+            follow_redirects=False,
             transport=transport,
         )
 
@@ -103,6 +110,34 @@ class SafeHttpClient:
             )
 
     def _get(self, url: str) -> httpx.Response:
+        current = url
+        for _ in range(self._max_redirects + 1):
+            response = self._get_once(current)
+            if not response.is_redirect:
+                break
+            location = response.headers.get("location", "")
+            if not location:
+                raise ProviderError("Redirect had no Location header", url=current)
+            # Resolved against the current URL so a relative Location works, then checked
+            # again: a hop is a new request and gets the same scrutiny as the first one.
+            current = str(httpx.URL(current).join(location))
+        else:
+            raise ProviderError(
+                "Too many redirects", url=url, limit=self._max_redirects
+            )
+
+        # An oversized response is a denial-of-service vector and a memory hazard; refuse
+        # rather than buffer it. Filings are large but bounded.
+        if len(response.content) > self._max_response_bytes:
+            raise ProviderError(
+                "Response exceeded the maximum allowed size",
+                url=current,
+                size=len(response.content),
+                limit=self._max_response_bytes,
+            )
+        return response
+
+    def _get_once(self, url: str) -> httpx.Response:
         self.check_url(url)
         if self._rate_limiter is not None:
             waited = self._rate_limiter.acquire()
@@ -110,19 +145,10 @@ class SafeHttpClient:
                 log.debug("http.rate_limited", url=url, waited_seconds=round(waited, 3))
         try:
             response = self._client.get(url)
-            response.raise_for_status()
+            if not response.is_redirect:
+                response.raise_for_status()
         except httpx.HTTPError as exc:
             raise ProviderError(f"HTTP request failed: {exc}", url=url) from exc
-
-        # An oversized response is a denial-of-service vector and a memory hazard; refuse
-        # rather than buffer it. Filings are large but bounded.
-        if len(response.content) > self._max_response_bytes:
-            raise ProviderError(
-                "Response exceeded the maximum allowed size",
-                url=url,
-                size=len(response.content),
-                limit=self._max_response_bytes,
-            )
         return response
 
     def get_json(self, url: str) -> Any:
