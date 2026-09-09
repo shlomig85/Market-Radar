@@ -335,3 +335,35 @@ five at 0.92. The shape is borrowed from signal strength for consistency; the co
 calibrated against anything. An evidence-anchored exposure also has no hop path, so `path.hops` is
 empty and `path.anchored_by` says `"evidence"` — the UI and any reader must treat the two kinds of
 explanation differently rather than assuming every exposure has a traversal behind it.
+
+---
+
+## ADR-017 — An extractor version bump retracts the previous version's output
+
+**Decision.** `EXTRACTOR_VERSION` and `RELATIONSHIP_EXTRACTOR_VERSION` are bumped whenever extraction
+*behaviour* changes, not only when the file changes. A bump causes `ingestion/retraction.py` to
+withdraw everything the previous version produced — evidence, events, extracted edges, and findings
+left with no support — before re-extraction runs. `entity_relationships.extractor_version` (migration
+0003) marks an edge as derived; a curated edge has NULL there, survives every retraction, and only
+loses its citation.
+
+**Alternatives.** (a) Bump the version and leave superseded rows in place. (b) Require a full
+`reset` after any extractor change. (c) Version nothing and always re-extract everything.
+
+**Why.** Extraction is idempotent on `(document, span, rule, extractor version)`, which is correct
+right up to the moment the rules change without the version changing — then every document looks
+already-done and the improvement never reaches stored data. This was observed, not theorised: rules
+that produced a fabricated customer edge were fixed and verified, the pipeline was re-run against the
+database holding that edge, and it reported `created=0 skipped=72` and left the edge in place.
+
+(a) is worse than doing nothing: the corpus then carries two generations of evidence and
+double-counts them into events. (b) throws away the documents, which are the expensive part and the
+part that is not derived — and on a rate-limited source, re-fetching to fix a regex is absurd. (c)
+gives up idempotency, which is what makes a partial failure safe to re-run.
+
+**Cost.** Retraction is destructive by design, so the boundary between derived and curated data has
+to be exactly right — hence the new column, rather than inferring intent from whether an edge happens
+to carry a citation. Research reports are *not* deleted: a report is a published artefact and quietly
+destroying one is worse than telling its reader it is stale, so retraction counts them and says so.
+Until the report is re-run it may cite evidence that no longer exists.
+

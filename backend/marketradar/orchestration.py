@@ -35,6 +35,7 @@ from marketradar.ingestion.relationships import (
     RelationshipReport,
     extract_entity_relationships,
 )
+from marketradar.ingestion.retraction import RetractionReport, retract_superseded
 from marketradar.logging import get_logger
 from marketradar.mapping.exposure import compute_exposures, evidence_anchors
 from marketradar.mapping.value_chain import Anchor
@@ -63,6 +64,7 @@ class PipelineResult:
     scores_created: int = 0
     companies: CompanySyncReport = field(default_factory=CompanySyncReport)
     relationships: RelationshipReport = field(default_factory=RelationshipReport)
+    retraction: RetractionReport = field(default_factory=RetractionReport)
     provider_modes: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -84,7 +86,15 @@ def run_pipeline(
         if health.mode == DataMode.UNAVAILABLE:
             result.notes.append(f"{health.capability.value}: {health.detail}")
 
-    # --- 0. company reference data --------------------------------------
+    # --- 0. retract superseded extraction --------------------------------
+    # Runs before anything else: extraction is idempotent per extractor version, so an
+    # improved extractor sees "already done" for every document until the previous version's
+    # output is withdrawn. Skipping this is how a fixed pipeline re-runs over a database and
+    # leaves a known-wrong edge exactly where it was.
+    result.retraction = retract_superseded(session)
+    result.notes.extend(result.retraction.notes)
+
+    # --- 0b. company reference data --------------------------------------
     # Companies must exist before evidence is extracted: entity resolution is built from
     # them, so a document ingested before its issuer is known would have no attribution.
     company_provider = registry.company_data

@@ -38,7 +38,9 @@ from marketradar.domain.enums import EntityType, RelationshipType
 from marketradar.entities.resolver import EntityResolver
 
 RELATIONSHIP_EXTRACTOR_NAME = "rule_relationship_extractor"
-RELATIONSHIP_EXTRACTOR_VERSION = "rel-1.0.0"
+#: See EXTRACTOR_VERSION on bumping. rel-1.1.0 — infinitive-marker guard, abbreviation
+#: periods no longer truncate a party window, and additional disclosure phrasings.
+RELATIONSHIP_EXTRACTOR_VERSION = "rel-1.1.0"
 
 #: Which side of the edge the filer occupies.
 FilerRole = Literal["source", "target"]

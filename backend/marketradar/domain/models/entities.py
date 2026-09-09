@@ -120,6 +120,10 @@ class EntityRelationship(UuidPkMixin, TimestampMixin, Base):
     #: How sure we are the relationship exists at all (0..1).
     confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     evidence_id: Mapped[str | None] = mapped_column(ForeignKey("evidence_items.id"))
+    #: Which extractor produced this edge, or NULL when it was seeded rather than read out
+    #: of a document. This is what lets a superseded extractor's output be retracted without
+    #: touching curated edges — see marketradar.ingestion.retraction.
+    extractor_version: Mapped[str | None] = mapped_column(String(32))
     note: Mapped[str | None] = mapped_column(Text)
     data_mode: Mapped[DataMode] = mapped_column(StrEnumText(DataMode), nullable=False)
 
@@ -134,6 +138,7 @@ class EntityRelationship(UuidPkMixin, TimestampMixin, Base):
             "relationship_type",
             name="uq_relationship_edge",
         ),
+        Index("ix_entity_rel_extractor_version", "extractor_version"),
         Index("ix_entity_rel_source", "source_entity_type", "source_entity_key"),
         Index("ix_entity_rel_target", "target_entity_type", "target_entity_key"),
     )

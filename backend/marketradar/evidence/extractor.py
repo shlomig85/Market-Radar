@@ -19,7 +19,12 @@ from dataclasses import dataclass
 from marketradar.domain.enums import Direction, EventType
 
 EXTRACTOR_NAME = "rule_extractor"
-EXTRACTOR_VERSION = "1.0.0"
+#: Bumped whenever extraction BEHAVIOUR changes, not only when this file does: the
+#: version is the idempotency key, so leaving it alone after a fix makes every document
+#: look already-done and the fix never reaches stored data. A bump retracts the previous
+#: version's output (marketradar.ingestion.retraction) and re-extracts.
+#: 1.1.0 — evidence from a filing falls back to the filer when the sentence names nobody.
+EXTRACTOR_VERSION = "1.1.0"
 
 
 @dataclass(frozen=True)

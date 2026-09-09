@@ -130,6 +130,7 @@ An edge that was seeded by hand rather than read out of a document prints
 | "API unreachable" on the dashboard | the backend is not running, or `MARKETRADAR_API_URL` points at the wrong host |
 | "No themes have formed yet" | the pipeline has not run — `make pipeline`. This is also the honest answer whenever nothing is accelerating |
 | Theme page shows no research trace | `make research` has not run for that theme. The panel reflects the database rather than rendering a placeholder |
+| A pipeline re-run reports `created=0 skipped=N` and nothing changes | expected when the corpus and the extractors are both unchanged — documents are not re-fetched. If an extractor was *improved*, its version must be bumped: the pipeline then retracts the previous version's output and re-extracts (ADR-017) |
 | Port 3000 or 8000 already in use | change the host side of the port mapping in `docker-compose.yml` |
 | `Bind for 0.0.0.0:5432 failed: port is already allocated` | another Market Radar stack (or a local Postgres) already holds the port. Either stop it — `docker compose ls` names the running projects — or give this stack its own ports: `export MARKETRADAR_POSTGRES_HOST_PORT=5433 MARKETRADAR_API_HOST_PORT=8001 MARKETRADAR_WEB_HOST_PORT=3001` |
 | `service "bootstrap" didn't complete successfully: exit 1` | the demo bring-up failed. It now prints `bootstrap FAILED during: <step>` — read that line first: `docker compose logs bootstrap`. A one-off CLI command does not need bootstrap at all; use the `cli` service below |
@@ -140,7 +141,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 234 tests
+make test              # 242 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -181,7 +182,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 16 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 17 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
 | `docs/research-pipeline.md` | the deterministic pipeline and the research loop |

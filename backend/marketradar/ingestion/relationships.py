@@ -150,6 +150,9 @@ def extract_entity_relationships(session: Session) -> RelationshipReport:
                     weight=found.weight,
                     confidence=found.confidence,
                     evidence_id=evidence.id,
+                    # Stamped so this edge can be withdrawn when the extractor that
+                    # produced it is superseded. A curated edge has no stamp and survives.
+                    extractor_version=RELATIONSHIP_EXTRACTOR_VERSION,
                     note=found.claim,
                     data_mode=document.data_mode,
                 )

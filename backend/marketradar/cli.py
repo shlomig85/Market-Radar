@@ -79,6 +79,13 @@ def pipeline(
     with session_scope() as session:
         result = run_pipeline(session, as_of=moment)
 
+    if result.retraction.anything_retracted:
+        typer.echo(
+            f"Retracted:  {result.retraction.evidence_retracted} evidence, "
+            f"{result.retraction.events_retracted} events, "
+            f"{result.retraction.edges_retracted} edges from a superseded extractor "
+            f"({result.retraction.edges_uncited} edges left uncited)"
+        )
     typer.echo(f"Documents:  seen={result.ingestion.documents_seen} "
                f"created={result.ingestion.documents_created} "
                f"skipped={result.ingestion.documents_skipped}")

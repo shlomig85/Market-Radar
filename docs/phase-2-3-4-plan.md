@@ -366,3 +366,43 @@ interface — now with a real-filing test set (`FIELD` in
   disabled.
 * Recall on real filings is measured on two sentences. That is a start, not a sample.
 
+---
+
+## 13. The second run, and the defect it exposed (2026-09-09)
+
+Re-running the fixed pipeline against the database from §12 reported:
+
+```
+Documents:  seen=72 created=0 skipped=72
+Evidence:   0 created      Events: 0 created      Graph: 0 edges created
+```
+
+— and `marketradar graph` still showed the fabricated edge, now legibly:
+
+```
+E.W. SCRIPPS Co [sec-0000832428] --[BUYS_FROM]--> MICROSOFT CORP [sec-0000789019]
+SK hynix Inc.   [sec-0002120882] --[SUPPLIES]--> NVIDIA CORP     [sec-0001045810]
+```
+
+The D4 naming fix did its job: a broadcaster as a customer of Microsoft is obviously wrong,
+where two bare CIKs were not. But **none of the D1–D3 fixes reached the data.**
+
+**D5 — an extractor improvement cannot reach an existing database (CRITICAL).** Extraction
+is idempotent on `(document, span, rule, extractor version)`. The rules were fixed without
+bumping the version, so every document looked already-done, nothing re-ran, and the
+fabricated edge survived a pipeline run specifically intended to remove it. A version bump
+alone would not have been enough either — superseded rows do not delete themselves, so the
+corpus would carry two generations of evidence and double-count them into events.
+
+Fixed by making a version bump mean what it should: **retract, then re-extract** (ADR-017).
+`ingestion/retraction.py` withdraws the previous version's evidence, events, extracted edges
+and any finding left with no support. Documents are never touched — they are the expensive,
+rate-limited, non-derived part. Curated edges are never deleted; migration 0003 adds
+`entity_relationships.extractor_version` so "derived" is recorded rather than guessed at.
+
+Verified against a database stamped at the old versions: 92 evidence, 42 events and 20 edges
+retracted, then re-extracted from the same 38 documents with no re-fetching.
+
+Both extractor versions are now `1.1.0` / `rel-1.1.0`, so the next run on any existing
+database will retract and re-extract automatically.
+
