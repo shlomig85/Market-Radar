@@ -265,8 +265,15 @@ def build_resolver(session: Session) -> EntityResolver:
     )
 
 
-def extract_evidence(session: Session) -> IngestionReport:
-    """Extract evidence for documents that do not yet have it, at this extractor version."""
+def extract_evidence(
+    session: Session, vocabulary: dict[str, tuple[str, ...]] | None = None
+) -> IngestionReport:
+    """Extract evidence for documents that do not yet have it, at this extractor version.
+
+    ``vocabulary`` decides which subjects a sentence can be *about*. The pipeline passes the
+    discovered subjects; passing nothing falls back to the built-in lexicon, which names
+    three topics somebody typed in and is why the system could not discover anything.
+    """
     report = IngestionReport()
     resolver = build_resolver(session)
 
@@ -305,7 +312,10 @@ def extract_evidence(session: Session) -> IngestionReport:
             filer = None
 
         for item in extract(
-            document.body_text, resolve_entity=resolve_entity, subject_hints=hints
+            document.body_text,
+            resolve_entity=resolve_entity,
+            subject_hints=hints,
+            vocabulary=vocabulary,
         ):
             session.add(
                 EvidenceItem(

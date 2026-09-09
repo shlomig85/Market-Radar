@@ -409,3 +409,37 @@ is unverified from the build environment — `live-check` reports which feeds ac
 the list is a starting point rather than a recommendation. Article extraction is heuristic; a
 paywall yields an abstract, and an abstract supports weaker claims than an article, which is why the
 distinction is recorded on every document.
+
+---
+
+## ADR-019 — Subjects are discovered from the corpus; the extractor's own vocabulary is the anti-vocabulary
+
+**Decision.** Subjects are mined from stored documents (`subjects/discovery.py`) and persisted
+(`subjects` table, migration 0004). A term qualifies on **independent-cluster support**, not
+frequency. Signal definitions became templates (`SIGNAL_TEMPLATES`) instantiated against whatever
+subjects carry evidence, so a discovered subject is measured without anyone editing code. Words the
+evidence extractor keys on are **excluded** from subject candidacy, derived from the rules themselves.
+
+**Alternatives.** (a) Keep the hand-typed three-subject lexicon. (b) Mine by raw frequency or TF-IDF.
+(c) Ask an LLM to propose topics.
+
+**Why.** (a) is audit finding C6: a system that only recognises what it was taught monitors, it does
+not discover. (b) was tried and is recorded here because the failure is instructive — the first run
+over a real corpus returned *capacity, pricing, demand, inventory, declined*. Every one is a
+predicate. Of course it is: a corpus of documents about things changing shares the vocabulary of
+change, so frequency finds it. Those are already modelled as `EventType`; a subject is the thing
+change happens **to**. Deriving the exclusion from the extraction rules makes it self-maintaining —
+add a rule keying on a new change-word and it stops being a candidate subject on the next run.
+
+Three further filters each fix an observed failure: company n-grams are excluded (an issuer is an
+entity resolution already handles, and admitting it lets one company's coverage read as a theme); a
+term already covered by a declared subject's vocabulary is not duplicated (otherwise one topic's
+evidence splits across two keys on a tie-break); and equal-support containment collapses "grid",
+"storage" and "grid storage" into the phrase, since words that only ever co-occur are one unit.
+
+**Cost.** The stopword list is still hand-maintained and English-only, and it is a real hand-tuned
+surface — the honest limit of a rules-based miner. Recall on subjects is unmeasured: there is no
+labelled set saying which topics a corpus "should" yield, so the qualifying thresholds
+(3 clusters, 0.75 document ratio above 20 documents) are reasoned, not calibrated. Discovery also
+cannot name a topic in words the corpus does not use, and with no feed archive the corpus begins the
+day ingestion begins, so emergence is weak until history accumulates.

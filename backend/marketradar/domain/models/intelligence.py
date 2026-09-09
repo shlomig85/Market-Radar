@@ -101,6 +101,55 @@ class EventEvidence(Base):
     event: Mapped[Event] = relationship(back_populates="evidence_links")
 
 
+class Subject(UuidPkMixin, TimestampMixin, Base):
+    """A topic the corpus is about, DISCOVERED rather than declared (audit C6).
+
+    Before this table, the system could only recognise three subjects because their
+    vocabulary had been typed into a lexicon — so it could monitor, but never discover. A
+    row here is earned: a term must be supported by several independent ancestry clusters,
+    which is what stops one syndicated story from minting a topic.
+
+    Rows persist across runs so a subject has a stable identity and a real first-seen date,
+    which is what makes "when did this become visible?" answerable at all.
+    """
+
+    __tablename__ = "subjects"
+
+    key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    #: The term as it appears in the corpus, e.g. "grid storage".
+    term: Mapped[str] = mapped_column(String(256), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(256))
+
+    document_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: Independent ancestry clusters supporting the subject. This, not document count, is
+    #: what qualifies a term: ten documents from one origin are one confirmation.
+    cluster_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: -100..100, from the same tanh the trend engine uses for signal acceleration.
+    emergence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    #: 0..1. How much of the corpus the term does NOT appear in; boilerplate scores low.
+    specificity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    salience: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    #: The earliest publication among supporting documents, kept across runs so a subject's
+    #: age is measured from when it appeared, not from when this row was written.
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    #: False for the built-in lexicon subjects, which were declared rather than found. Kept
+    #: distinguishable so "the system discovered this" is never claimed about a seeded topic.
+    is_discovered: Mapped[bool] = mapped_column(nullable=False, default=True)
+    discovery_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    data_mode: Mapped[DataMode] = mapped_column(StrEnumText(DataMode), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("cluster_count >= 0", name="cluster_count_non_negative"),
+        CheckConstraint("specificity >= 0 AND specificity <= 1", name="specificity_range"),
+        Index("ix_subjects_salience", "salience"),
+        Index("ix_subjects_last_seen_at", "last_seen_at"),
+    )
+
+
 class Signal(UuidPkMixin, TimestampMixin, Base):
     """A named measurable phenomenon tracked over time (e.g. 'AI memory demand')."""
 

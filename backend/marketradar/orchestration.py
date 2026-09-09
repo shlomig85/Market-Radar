@@ -36,13 +36,22 @@ from marketradar.ingestion.relationships import (
     extract_entity_relationships,
 )
 from marketradar.ingestion.retraction import RetractionReport, retract_superseded
+from marketradar.ingestion.subjects import (
+    SubjectReport,
+    refresh_subjects,
+    subject_vocabulary,
+    subjects_with_evidence,
+)
 from marketradar.logging import get_logger
 from marketradar.mapping.exposure import compute_exposures, evidence_anchors
 from marketradar.mapping.value_chain import Anchor
 from marketradar.providers import ProviderRegistry, build_default_registry
 from marketradar.providers.base import ProviderQuery
 from marketradar.scoring import persist_score
-from marketradar.signals.definitions import SIGNAL_DEFINITIONS, SIGNALS_BY_KEY
+from marketradar.signals.definitions import (
+    SIGNAL_DEFINITIONS,
+    definitions_for_subjects,
+)
 from marketradar.signals.engine import SignalEngine
 from marketradar.themes.definitions import SUBJECT_ANCHORS
 from marketradar.themes.formation import FormedTheme, form_themes
@@ -65,6 +74,7 @@ class PipelineResult:
     companies: CompanySyncReport = field(default_factory=CompanySyncReport)
     relationships: RelationshipReport = field(default_factory=RelationshipReport)
     retraction: RetractionReport = field(default_factory=RetractionReport)
+    subjects: SubjectReport = field(default_factory=SubjectReport)
     provider_modes: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -124,9 +134,22 @@ def run_pipeline(
             ingest_documents(session, payload, sources, now=as_of)
         )
 
-    # --- 2. ancestry, evidence, events ---------------------------------
+    # --- 2. ancestry, subjects, evidence, events ------------------------
     result.ingestion = result.ingestion.merge(rebuild_clusters(session, settings))
-    result.ingestion = result.ingestion.merge(extract_evidence(session))
+
+    # Subjects are discovered BEFORE evidence extraction, because what a sentence can be
+    # "about" is decided by the vocabulary the extractor reads with. Clusters are already
+    # rebuilt at this point, which matters: a subject qualifies on independent-cluster
+    # support, so discovery would understate independence if it ran first (audit C6).
+    result.subjects = refresh_subjects(
+        session,
+        as_of=as_of,
+        observation_window_days=settings.observation_window_days,
+        baseline_window_days=settings.baseline_window_days,
+    )
+    result.ingestion = result.ingestion.merge(
+        extract_evidence(session, vocabulary=subject_vocabulary(session))
+    )
     # Clusters are rebuilt again so evidence created in this run inherits its document's
     # cluster; the operation is idempotent, so the second pass is cheap and keeps the
     # denormalised link exact.
@@ -140,8 +163,12 @@ def run_pipeline(
     result.relationships = extract_entity_relationships(session)
 
     # --- 3. signals ----------------------------------------------------
+    # Templates are instantiated against the subjects that actually carry evidence, so a
+    # newly discovered topic is measured without anyone editing code — and a subject with
+    # no evidence does not produce a wall of empty trends that dilute every aggregate.
     engine = SignalEngine(session, as_of=as_of)
-    for definition in SIGNAL_DEFINITIONS:
+    definitions = definitions_for_subjects(sorted(subjects_with_evidence(session)))
+    for definition in definitions or SIGNAL_DEFINITIONS:
         engine.compute_signal(definition, as_of=as_of)
         result.signals_computed += 1
     get_bus().publish(DomainEvent.SIGNAL_UPDATED, {"count": result.signals_computed})
@@ -153,9 +180,14 @@ def run_pipeline(
         observation_window_days=settings.observation_window_days,
         baseline_window_days=settings.baseline_window_days,
     )
+    # Looked up against the definitions computed THIS run, not a static module-level map.
+    # With signals instantiated per discovered subject, a static map knows only the built-in
+    # three, so every discovered subject's signal would be silently skipped here and its
+    # trend never computed — discovery that stops one stage short of being measured.
+    by_key = {definition.key: definition for definition in definitions or SIGNAL_DEFINITIONS}
     trends: dict[str, Trend] = {}
     for signal in session.scalars(select(Signal)).all():
-        signal_definition = SIGNALS_BY_KEY.get(signal.key)
+        signal_definition = by_key.get(signal.key)
         if signal_definition is None:
             continue
         computed = trend_engine.compute(signal, signal_definition, as_of)

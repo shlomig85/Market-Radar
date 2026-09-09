@@ -87,6 +87,16 @@ def pipeline(
             f"{result.retraction.edges_retracted} edges from a superseded extractor "
             f"({result.retraction.edges_uncited} edges left uncited)"
         )
+    if result.subjects.considered:
+        typer.echo(
+            f"Subjects:   {result.subjects.created} new, "
+            f"{result.subjects.updated} updated"
+            + (
+                f" — top: {', '.join(result.subjects.top_terms[:5])}"
+                if result.subjects.top_terms
+                else ""
+            )
+        )
     typer.echo(f"Documents:  seen={result.ingestion.documents_seen} "
                f"created={result.ingestion.documents_created} "
                f"skipped={result.ingestion.documents_skipped}")
@@ -363,6 +373,48 @@ def sync_companies_command() -> None:
         f"Companies: {report.created} created, {report.updated} updated, "
         f"{report.securities_created} securities ({report.mode.value})."
     )
+
+
+@app.command()
+def subjects(
+    limit: int = typer.Option(30, help="Maximum subjects to print."),
+    discovered_only: bool = typer.Option(False, help="Hide the built-in lexicon subjects."),
+) -> None:
+    """Show what the corpus turned out to be about.
+
+    A subject marked ``found`` was discovered from the documents; ``declared`` means it was
+    typed into the built-in lexicon. The distinction is printed because the system must
+    never claim to have discovered a topic somebody gave it.
+    """
+    _bootstrap()
+    from marketradar.domain.models import Subject
+
+    with session_scope() as session:
+        query = select(Subject).order_by(Subject.salience.desc()).limit(limit)
+        if discovered_only:
+            query = query.where(Subject.is_discovered.is_(True))
+        rows = session.scalars(query).all()
+        if not rows:
+            typer.echo("No subjects yet — run the pipeline first.")
+            return
+
+        typer.echo(
+            f"{'SUBJECT':<34}{'ORIGIN':<11}{'CLUSTERS':<10}{'EMERGE':<9}{'SALIENCE':<10}FIRST SEEN"
+        )
+        typer.echo("-" * 92)
+        for row in rows:
+            origin = "found" if row.is_discovered else "declared"
+            typer.echo(
+                f"{row.term[:33]:<34}{origin:<11}{row.cluster_count:<10}"
+                f"{row.emergence:<9.1f}{row.salience:<10.1f}{row.first_seen_at.date()}"
+            )
+        typer.echo("-" * 92)
+        found = sum(1 for row in rows if row.is_discovered)
+        typer.echo(
+            f"{found} discovered, {len(rows) - found} declared. "
+            "A subject must be supported by several INDEPENDENT clusters, so a single "
+            "syndicated story cannot create one."
+        )
 
 
 @app.command()

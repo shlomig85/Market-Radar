@@ -267,23 +267,39 @@ def split_sentences(text: str) -> list[tuple[int, int, str]]:
     return spans
 
 
-def detect_subject(sentence: str, fallback_hints: tuple[str, ...] = ()) -> str | None:
+def detect_subject(
+    sentence: str,
+    fallback_hints: tuple[str, ...] = (),
+    vocabulary: dict[str, tuple[str, ...]] | None = None,
+) -> str | None:
     """Which tracked subject a sentence is about.
+
+    ``vocabulary`` maps a subject key to the terms that identify it. It defaults to the
+    built-in lexicon, but the pipeline passes **discovered** subjects instead: the built-in
+    list names three topics somebody typed in, and a system that can only recognise what it
+    was taught cannot discover anything (audit C6).
 
     Falls back to the provider's document-level hints when the sentence itself is
     non-specific (pronouns, "the company", ...), which is common in filings.
     """
+    vocabulary = SUBJECT_LEXICON if vocabulary is None else vocabulary
     lowered = sentence.lower()
-    best: tuple[int, str] | None = None
-    for subject, vocabulary in SUBJECT_LEXICON.items():
-        hits = sum(1 for term in vocabulary if term in lowered)
-        if hits and (best is None or hits > best[0]):
-            best = (hits, subject)
+    best: tuple[int, int, str] | None = None
+    for subject, terms in vocabulary.items():
+        hits = sum(1 for term in terms if term in lowered)
+        if not hits:
+            continue
+        # A longer matched term is more specific evidence of the subject than a short one,
+        # so it breaks ties: "high bandwidth memory" beats a bare "memory".
+        longest = max((len(term) for term in terms if term in lowered), default=0)
+        ranked = (hits, longest, subject)
+        if best is None or ranked > best:
+            best = ranked
     if best:
-        return best[1]
+        return best[2]
     for hint in fallback_hints:
-        for subject, vocabulary in SUBJECT_LEXICON.items():
-            if hint.lower() in vocabulary or hint.lower() == subject:
+        for subject, terms in vocabulary.items():
+            if hint.lower() in terms or hint.lower() == subject:
                 return subject
     return None
 
@@ -302,6 +318,7 @@ def extract(
     text: str,
     resolve_entity: Callable[[str], str | None] | None = None,
     subject_hints: tuple[str, ...] = (),
+    vocabulary: dict[str, tuple[str, ...]] | None = None,
 ) -> list[ExtractedEvidence]:
     """Extract typed, span-anchored evidence from a document body.
 
@@ -352,7 +369,7 @@ def extract(
                     direction=Direction.NEUTRAL if speculative else rule.direction,
                     magnitude=0.0 if speculative else rule.magnitude,
                     confidence=round(rule.confidence * 0.7, 3) if speculative else rule.confidence,
-                    subject_key=detect_subject(matchable, subject_hints),
+                    subject_key=detect_subject(matchable, subject_hints, vocabulary),
                     entity_hint=entity_hint,
                     rule_key=rule.rule_key,
                     is_forward_looking=speculative,

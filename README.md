@@ -112,6 +112,16 @@ make web          # http://localhost:3000
 `make all` runs the whole chain from an empty database to a rendered report.
 `make help` lists every target.
 
+To see what the corpus turned out to be about — topics found, not declared:
+
+```bash
+make docker-cli cmd="subjects"
+```
+
+`found` means discovered from the documents; `declared` means it came from the built-in
+lexicon. A subject must be supported by several **independent** ancestry clusters, so one
+syndicated story cannot create one.
+
 To check which news sources are actually answering:
 
 ```bash
@@ -159,7 +169,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 269 tests
+make test              # 300 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -200,7 +210,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 18 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 19 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
 | `docs/research-pipeline.md` | the deterministic pipeline and the research loop |
