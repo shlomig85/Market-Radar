@@ -390,9 +390,11 @@ def feeds() -> None:
     for probe in probes:
         newest = probe.newest.date().isoformat() if probe.newest else "-"
         items = str(probe.item_count) if probe.reachable else "-"
+        # Not truncated: "Client error '4" hides whether a feed is 404 (wrong URL, replace
+        # it) or 403 (blocked, fix the User-Agent), which are opposite remedies.
         typer.echo(
             f"{probe.feed.key:<24}{probe.feed.base_quality:<9}{items:<7}{newest:<12}"
-            f"{probe.status[:44]}"
+            f"{probe.status}"
         )
 
     reachable = sum(1 for probe in probes if probe.reachable)

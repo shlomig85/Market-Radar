@@ -88,12 +88,16 @@ def _build_news(settings: Settings) -> Any:
                 # IS the decision to fetch it, and requiring the host to be repeated in the
                 # SSRF allowlist would be a footgun that fails at runtime, not startup.
                 allowed_hosts=[*settings.http_allowed_hosts, *_feed_hosts(feeds)],
-                timeout_seconds=settings.sec_request_timeout_seconds,
+                timeout_seconds=settings.feed_timeout_seconds,
                 headers={
                     "User-Agent": settings.feed_user_agent or settings.sec_user_agent,
+                    # The trailing */* is load-bearing. Without it, a server that does not
+                    # advertise these exact types answers 406 Not Acceptable and the feed
+                    # looks dead — the EIA feed did exactly that. Asking for a preference
+                    # is fine; refusing everything else is not.
                     "Accept": (
                         "application/rss+xml, application/atom+xml, "
-                        "application/xml, text/html"
+                        "application/xml;q=0.9, text/xml;q=0.9, */*;q=0.8"
                     ),
                 },
                 # Publishers are not the SEC and publish no fair-access rate; one request a

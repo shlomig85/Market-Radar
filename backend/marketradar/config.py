@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     feeds: Annotated[list[str], NoDecode] = Field(default_factory=list)
     #: Items taken per feed per run. Each item may cost one article fetch.
     feed_max_items: int = 40
+    #: Publishers are slower and less predictable than the SEC — some sit behind CDNs that
+    #: stall a first request — so feeds get their own, longer budget rather than inheriting
+    #: the SEC one and reporting a healthy-but-slow publisher as dead.
+    feed_timeout_seconds: float = 45.0
     #: Contact string sent as User-Agent when fetching feeds and articles. Publishers block
     #: anonymous scrapers, and identifying the client is the honest thing to do regardless.
     feed_user_agent: str = Field(

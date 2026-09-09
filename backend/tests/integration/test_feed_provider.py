@@ -401,3 +401,37 @@ def test_the_default_list_is_weighted_toward_free_primary_sources() -> None:
     for feed in DEFAULT_FEEDS:
         assert "api_key" not in feed.url and "apikey" not in feed.url.lower(), feed.key
         assert "token" not in feed.url.lower(), feed.key
+
+
+def test_a_server_that_refuses_our_accept_header_is_a_bug_not_a_dead_feed() -> None:
+    """The EIA feed answered 406 because our Accept header offered no fallback.
+
+    A publisher is entitled to serve `text/plain` or an unusual XML type; refusing
+    everything but a preferred list turns a healthy feed into an apparently dead one.
+    """
+    from marketradar.config import Settings
+    from marketradar.providers.registry import _build_news
+
+    provider = _build_news(Settings(news_provider="feeds", feed_user_agent="MR test@x.com"))
+    accept = provider._client._client.headers["accept"]  # noqa: SLF001
+    assert "*/*" in accept, "a wildcard fallback is what stops a 406 on a healthy feed"
+
+
+def test_feeds_get_a_longer_budget_than_the_sec() -> None:
+    """A slow publisher behind a CDN must not be reported as dead."""
+    from marketradar.config import Settings
+
+    settings = Settings()
+    assert settings.feed_timeout_seconds > settings.sec_request_timeout_seconds
+
+
+def test_a_probe_failure_reports_the_whole_reason() -> None:
+    """404 (replace the URL) and 403 (fix the User-Agent) are opposite remedies."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    provider = RssFeedProvider(_client(handler), feeds=(FEED,))
+    probe = provider.probe()[0]
+    assert not probe.reachable
+    assert "404" in probe.status
