@@ -18,13 +18,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from marketradar.domain.enums import DataMode, Direction
-from marketradar.domain.models import Company, EntityRelationship, EvidenceItem, SourceDocument
+from marketradar.domain.models import (
+    Company,
+    EntityRelationship,
+    EvidenceItem,
+    SourceDocument,
+)
 from marketradar.entities.relationships import (
     RELATIONSHIP_EXTRACTOR_NAME,
     RELATIONSHIP_EXTRACTOR_VERSION,
     extract_relationships,
 )
-from marketradar.ingestion.pipeline import build_resolver
+from marketradar.ingestion.pipeline import build_resolver, filer_key_for
 from marketradar.logging import get_logger
 
 log = get_logger(__name__)
@@ -43,23 +48,6 @@ class RelationshipReport:
     edges_created: int = 0
     edges_reinforced: int = 0
     notes: list[str] = field(default_factory=list)
-
-
-def filer_key_for(document: SourceDocument) -> str | None:
-    """Company key of the entity that filed a document, or ``None`` when it has no filer.
-
-    SEC documents carry the filer's CIK in the provider payload, and the company provider
-    keys issuers as ``sec-<zero-padded CIK>``; the two must agree or the edge would attach
-    to nothing. Other providers may state ``filer_key`` directly.
-    """
-    payload = document.provider_payload or {}
-    explicit = payload.get("filer_key")
-    if isinstance(explicit, str) and explicit:
-        return explicit
-    cik = payload.get("cik")
-    if isinstance(cik, str | int) and str(cik).strip():
-        return f"sec-{str(cik).strip().zfill(10)}"
-    return None
 
 
 def extract_entity_relationships(session: Session) -> RelationshipReport:
@@ -197,4 +185,4 @@ def extract_entity_relationships(session: Session) -> RelationshipReport:
     return report
 
 
-__all__ = ["RelationshipReport", "extract_entity_relationships", "filer_key_for"]
+__all__ = ["RelationshipReport", "extract_entity_relationships"]

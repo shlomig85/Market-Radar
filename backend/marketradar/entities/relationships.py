@@ -322,6 +322,20 @@ RULES: tuple[RelationshipRule, ...] = (
 #: agreement with X", short enough not to reach an unrelated earlier clause.
 _NEGATION_LOOKBACK = 64
 
+#: An infinitive marker, not a preposition. Several rules end their cue on "to" or "from"
+#: and take whatever follows as the counterparty; without this, Microsoft's revenue
+#: -recognition boilerplate — "...we sell each of the products and services separately and
+#: need TO determine whether there is a discount to be allocated..." — reads as "we sell to
+#: <the companies named downstream>". Observed in a live run over real filings.
+_INFINITIVE_CUE = re.compile(
+    r"\b(?:need|needs|needed|want|wants|wanted|able|unable|require|requires|required"
+    r"|seek|seeks|intend|intends|plan|plans|decide|decides|determine|determines"
+    r"|expect|expects|continue|continues|begin|begins|try|tries|tried|going|like|likely"
+    r"|order|agree|agrees|agreed|elect|elects|fail|fails|failed|choose|chooses|hope|hopes"
+    r"|refuse|refuses|obligated|obliged|entitled|prepared|willing)\s+to\s*$",
+    re.IGNORECASE,
+)
+
 #: Phrasings that negate or hypothesise the relationship the cue would otherwise assert.
 #: Checked over the run-up to the cue and the cue itself, up to the party window.
 _NEGATION = re.compile(
@@ -373,6 +387,38 @@ _PRODUCES_CUE = re.compile(
 )
 
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+
+#: Abbreviations whose trailing full stop is not a sentence end. Corporate designators
+#: dominate the list because they sit inside exactly the enumerations these rules read.
+_ABBREVIATIONS = (
+    "Inc", "Corp", "Ltd", "Co", "Cos", "LLC", "LLP", "LP", "PLC", "plc", "Pty", "Pte",
+    "Sdn", "Bhd", "GmbH", "AG", "SA", "NV", "AB", "AS", "ASA", "Oy", "KK", "SE",
+    "Bros", "Mfg", "Mr", "Mrs", "Ms", "Dr", "St", "No", "Nos", "vs", "approx", "est",
+)
+
+#: U+2024 ONE DOT LEADER: renders like a full stop, is not one. Substituting it for an
+#: abbreviation's period is **length-preserving**, which is the whole point — every
+#: character offset computed on the protected text still indexes the original document, so
+#: an excerpt can be sliced from the real text while matching runs on the protected copy.
+_DOT = "\u2024"
+
+_ABBREVIATION_RE = re.compile(
+    r"(?<!\w)(" + "|".join(_ABBREVIATIONS) + r")\.(?=[\s,;)\]]|$)"
+)
+#: "U.S.", "e.g.", "i.e." and other single-letter chains.
+_INITIALISM_RE = re.compile(r"(?<!\w)((?:[A-Za-z]\.){1,4})(?=[\s,;)\]]|$)")
+
+
+def protect_abbreviations(text: str) -> str:
+    """Neutralise full stops that do not end a sentence, preserving every offset.
+
+    Without this, "We purchase memory from SK Hynix Inc., Micron Technology, Inc., and
+    Samsung." yields exactly one supplier: every rule's party window is bounded by ``[^.;]``
+    and stops dead at the period in "Inc.". Observed on a real NVIDIA filing, where two of
+    the three disclosed memory suppliers were silently dropped.
+    """
+    text = _ABBREVIATION_RE.sub(lambda m: m.group(1) + _DOT, text)
+    return _INITIALISM_RE.sub(lambda m: m.group(1).replace(".", _DOT), text)
 
 
 @dataclass(frozen=True)
@@ -460,13 +506,19 @@ def extract_relationships(
     results: list[ExtractedRelationship] = []
     seen: set[tuple[str, str, str, str, str]] = set()
 
-    for start, end, sentence in split_sentences(text):
+    # Matching runs on a copy whose abbreviation periods are neutralised; the substitution
+    # is length-preserving, so every offset below still indexes the ORIGINAL text and the
+    # excerpt is always sliced from it.
+    protected = protect_abbreviations(text)
+
+    for start, end, _ in split_sentences(protected):
+        sentence = text[start:end].strip()
         if not sentence:
             continue
         # Filings are hard-wrapped, and every rule uses `.{0,N}` spans, which do not cross a
         # newline. Matching runs on a whitespace-collapsed copy; the excerpt and its offsets
         # stay on the original so they still point at the real document.
-        matchable = " ".join(sentence.split())
+        matchable = " ".join(protected[start:end].split())
 
         for rule in rules:
             match = rule.pattern.search(matchable)
@@ -480,6 +532,12 @@ def extract_relationships(
             # so the guard reads a bounded run-up as well as the cue itself.
             preamble = matchable[max(0, match.start() - _NEGATION_LOOKBACK) : match.start("party")]
             if _negated(preamble):
+                continue
+            # The cue is the text from the rule's own start to the party window. When it
+            # ends on an infinitive marker, the "to"/"from" the rule keyed on is part of a
+            # verb phrase and the window that follows is not a counterparty at all.
+            cue = matchable[match.start() : match.start("party")]
+            if _INFINITIVE_CUE.search(cue):
                 continue
 
             ordinal = 0
@@ -568,6 +626,7 @@ __all__ = [
     "RELATIONSHIP_EXTRACTOR_VERSION",
     "RULES",
     "ExtractedRelationship",
+    "protect_abbreviations",
     "RelationshipRule",
     "extract_relationships",
     "split_sentences",

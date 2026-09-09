@@ -273,3 +273,96 @@ What this establishes:
 What this does **not** establish: a full `pipeline` run against SEC (evidence, events and
 signals from real filings) has not yet been observed, and the extractor's recall on real
 filing prose is still unmeasured. Both are named in §8 as accepted open risks.
+
+
+---
+
+## 12. First full pipeline run on real filings (observed 2026-09-09)
+
+72 real SEC documents over AAPL / MSFT / NVDA. This is the run that matters, because it is
+the first time the extraction path met filing prose it was not written against. It found
+four defects that no test in the suite had caught, every one of them now pinned.
+
+```
+Documents:  seen=72 created=72     Evidence: 162     Events: 85
+Graph:      2 edges created (6 relationship citations), without_filer=24
+Themes:     memory-change          Exposures: 0
+```
+
+### D1 — A confident, entirely fictitious customer edge (CRITICAL)
+
+```
+sec-0000832428 --[BUYS_FROM w=0.60 c=0.54 LIVE]--> sec-0000789019
+  "We use a range of amounts to estimate SSP when we sell each of the products and
+   services separately and need to determine whether there is a discount to be allocated"
+```
+
+Microsoft revenue-recognition boilerplate, read as a customer relationship. Two independent
+defects had to line up, and each is fixed separately so either alone would have stopped it:
+
+* **The resolver matched bare lower-case English words to issuers.** The SEC universe
+  contains registrants named *Various*, *Discount*, *Range*, *Match*, *Block*. Matched
+  case-insensitively, they fire on ordinary prose — here at **0.92 confidence**. This is the
+  C4 substring failure resurfacing on a vocabulary the fix's word list did not contain, and
+  a hand-maintained list was never going to be the answer at 8,010 issuers. A one-word name
+  surface now requires the occurrence to be **capitalised**; sentence-initial capitalisation
+  carries no information, so it is accepted at reduced confidence rather than trusted.
+* **A rule keyed on an infinitive marker.** `we sell … to` matched the "to" in "need **to**
+  determine". Cues ending on an infinitive-taking verb are now rejected.
+
+### D2 — Two of three disclosed suppliers silently dropped (HIGH)
+
+```
+"We purchase memory from SK Hynix Inc., Micron Technology, Inc., and Samsung."
+```
+
+produced exactly **one** edge. Every rule's party window is bounded by `[^.;]`, which stops
+dead at the period in "Inc." — so only the first supplier in any enumeration was ever seen.
+Abbreviation periods are now neutralised before matching by a **length-preserving**
+substitution, so every offset still indexes the original document and excerpts stay exact.
+The sentence now yields SK Hynix *and* Micron; Samsung Electronics is not an SEC registrant,
+so it correctly yields nothing rather than a dangling edge.
+
+### D3 — A real theme that mapped to zero companies (HIGH)
+
+`memory-change` formed from real evidence and reached **no** companies. Theme anchors were
+concept nodes only (`memory_requirement`, `hbm`), and a graph read out of real filings is
+almost entirely company-to-company: filings say who supplies whom, and rarely say "we
+produce high-bandwidth memory" in the vocabulary a concept lexicon happens to know. The
+traversal started at entities the graph did not contain.
+
+Two changes, both of which real data requires:
+
+* **Evidence anchors.** The companies a theme's own evidence names are now first-order
+  anchors — they are the entry point that is always available, and the extracted edges
+  extend outward from there. Anchor weight saturates in the number of independent evidence
+  clusters, so one report does not anchor a theme as hard as five.
+* **Filings are about their filer.** "Demand for our products increased" names no company,
+  but it is unambiguously a claim about the company that filed it. Evidence from a filing
+  now falls back to the filer when the sentence itself names nobody — used only as a
+  fallback, so an explicit mention of a different issuer always wins. On the demo corpus
+  this took company-attributed events from **3 to 26**.
+
+### D4 — The graph was unauditable (MEDIUM)
+
+`marketradar graph` printed company keys, which for real issuers are zero-padded CIKs. Both
+edges above were unreadable without looking up two CIKs by hand — which is precisely why D1
+went unnoticed on first reading. It now prints `NAME [key]`.
+
+### What this run says about coverage
+
+2 edges from 72 documents, of which 1 was wrong. The corrected extractor would have produced
+3 correct edges and 0 wrong ones from the same corpus. That is a small number, and honestly
+so: 8-Ks rarely carry supply-chain language, and held-out recall on unseen filing phrasings
+is 0.29. The measurement stands as the argument for an LLM extractor behind the same
+interface — now with a real-filing test set (`FIELD` in
+`tests/unit/test_relationship_extraction.py`) for it to beat.
+
+### Still open
+
+* `without_filer=24` — the DEMO news provider is still active alongside the live SEC one, so
+  the run mixed corpora. Every document is labelled with its own `data_mode` and the theme
+  takes the weakest, so nothing is mislabelled, but a pure-LIVE run needs the news provider
+  disabled.
+* Recall on real filings is measured on two sentences. That is a start, not a sample.
+

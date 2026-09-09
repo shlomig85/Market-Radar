@@ -358,12 +358,22 @@ def graph(
             typer.echo("No edges." if not company else f"No edges touching {company}.")
             return
 
+        # Edges address companies by key, which for real issuers is a zero-padded CIK. A
+        # bare "sec-0002120882 SUPPLIES sec-0001045810" is unauditable — the reader cannot
+        # tell a correct edge from a wrong one without looking up two CIKs by hand, which
+        # is exactly what went unnoticed in the first live run.
+        names = {c.key: c.name for c in session.scalars(select(Company)).all()}
+
+        def label(key: str) -> str:
+            name = names.get(key)
+            return f"{name} [{key}]" if name else key
+
         cited = 0
         for edge in edges:
             typer.echo(
-                f"{edge.source_entity_key} --[{edge.relationship_type.value} "
+                f"{label(edge.source_entity_key)} --[{edge.relationship_type.value} "
                 f"w={edge.weight:.2f} c={edge.confidence:.2f} {edge.data_mode.value}]--> "
-                f"{edge.target_entity_key}"
+                f"{label(edge.target_entity_key)}"
             )
             evidence = (
                 session.get(EvidenceItem, edge.evidence_id) if edge.evidence_id else None

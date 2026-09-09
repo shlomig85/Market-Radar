@@ -238,6 +238,23 @@ def rebuild_clusters(session: Session, settings: Settings | None = None) -> Inge
 
 
 # -------------------------------------------------------------- evidence
+def filer_key_for(document: SourceDocument) -> str | None:
+    """Company key of the entity that filed a document, or ``None`` when it has no filer.
+
+    SEC documents carry the filer's CIK in the provider payload, and the company provider
+    keys issuers as ``sec-<zero-padded CIK>``; the two must agree or the edge would attach
+    to nothing. Other providers may state ``filer_key`` directly.
+    """
+    payload = document.provider_payload or {}
+    explicit = payload.get("filer_key")
+    if isinstance(explicit, str) and explicit:
+        return explicit
+    cik = payload.get("cik")
+    if isinstance(cik, str | int) and str(cik).strip():
+        return f"sec-{str(cik).strip().zfill(10)}"
+    return None
+
+
 def build_resolver(session: Session) -> EntityResolver:
     """Build an entity resolver over every company currently known."""
     return EntityResolver(
@@ -271,10 +288,22 @@ def extract_evidence(session: Session) -> IngestionReport:
         ).all()
     }
 
+    known_companies = {key for (key,) in session.execute(select(Company.key)).all()}
+
     for document in session.scalars(select(SourceDocument)).all():
         if document.id in done:
             continue
         hints = tuple((document.provider_payload or {}).get("subject_hints", ()))
+        # A filing is written by, and about, its filer. "Demand for our products increased"
+        # names no company, but it is unambiguously a claim about the company that filed it,
+        # and without this fallback such evidence carries no entity at all — which is why a
+        # live SEC run produced 85 events with almost none attributed to a company, and a
+        # theme that mapped to nothing. Only used when the sentence itself names no company,
+        # so an explicit mention of a different issuer always wins.
+        filer = filer_key_for(document)
+        if filer not in known_companies:
+            filer = None
+
         for item in extract(
             document.body_text, resolve_entity=resolve_entity, subject_hints=hints
         ):
@@ -290,7 +319,7 @@ def extract_evidence(session: Session) -> IngestionReport:
                     event_type=item.event_type,
                     direction=item.direction,
                     magnitude=item.magnitude,
-                    entity_hint=item.entity_hint,
+                    entity_hint=item.entity_hint or filer,
                     subject_key=item.subject_key,
                     rule_key=item.rule_key,
                     extracted_by=EXTRACTOR_NAME,
@@ -392,6 +421,7 @@ __all__ = [
     "IngestionReport",
     "build_events",
     "extract_evidence",
+    "filer_key_for",
     "ingest_documents",
     "net_direction",
     "rebuild_clusters",

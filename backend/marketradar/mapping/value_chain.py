@@ -41,11 +41,24 @@ HOP_DECAY = 0.85
 
 @dataclass(frozen=True)
 class Anchor:
-    """A concept the theme is anchored to, and how central it is to that theme."""
+    """An entity the theme is anchored to, and how central it is to that theme.
+
+    Usually a concept ("memory requirement"), which the traversal walks outward from to
+    reach companies. It may also be a **company**, when the theme's own evidence names one
+    directly: such a company is first-order by construction, and anchoring on it is what
+    lets a graph built from real filings — which contains company-to-company edges and few
+    concept nodes — produce exposure at all.
+    """
 
     entity_type: EntityType
     entity_key: str
     weight: float = 1.0
+    #: Mode of the evidence that produced this anchor. Only meaningful for company anchors,
+    #: where it becomes the exposure's mode; a concept anchor inherits from its edges.
+    data_mode: DataMode = DataMode.UNAVAILABLE
+    #: Why this anchor exists, when it is not a traversal. Becomes the exposure's rationale,
+    #: so an evidence-anchored company is never an unexplained row.
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +86,8 @@ class ExposurePath:
     confidence: float
     hops: list[Hop] = field(default_factory=list)
     data_mode: DataMode = DataMode.UNAVAILABLE
+    #: Set when the company was anchored by evidence rather than reached by traversal.
+    anchor_reason: str | None = None
 
     @property
     def exposure_score(self) -> float:
@@ -81,7 +96,7 @@ class ExposurePath:
     def describe(self) -> str:
         """A one-line, human-checkable rendering of the causal path."""
         if not self.hops:
-            return "Directly anchored to the theme."
+            return self.anchor_reason or "Directly anchored to the theme."
         parts = [f"{self.hops[0].from_key}"]
         for hop in self.hops:
             arrow = "->" if hop.direction == "forward" else "<-"
@@ -159,18 +174,40 @@ class ValueChainTraverser:
         queue: deque[_Node] = deque()
 
         for anchor in anchors:
+            # Order counts company hops. A concept anchor is not a company, so the first
+            # company reached from it is first-order. A COMPANY anchor already *is* that
+            # first-order company, so it starts at 1 and its supplier is second-order —
+            # otherwise the supplier of an anchored company would be reported as being as
+            # directly exposed as the company itself.
+            anchored_company = anchor.entity_type == EntityType.COMPANY
             node = _Node(
                 entity_type=anchor.entity_type,
                 entity_key=anchor.entity_key,
                 weight=anchor.weight,
                 confidence=1.0,
-                order=0,
+                order=1 if anchored_company else 0,
                 hops=[],
                 role=None,
                 modes=[],
             )
             queue.append(node)
             seen[(anchor.entity_type.value, anchor.entity_key)] = anchor.weight
+
+            # A company anchor is itself an exposure. Without this it would only ever be
+            # reported if some edge happened to point back at it, so a company that the
+            # theme's evidence names outright — the most direct exposure there is — would
+            # be missing from the theme it came from.
+            if anchored_company and anchor.entity_key in company_keys:
+                best[anchor.entity_key] = ExposurePath(
+                    company_key=anchor.entity_key,
+                    role=ExposureRole.DIRECT_BENEFICIARY,
+                    order_of_effect=1,
+                    weight=round(anchor.weight, 6),
+                    confidence=1.0,
+                    hops=[],
+                    data_mode=anchor.data_mode,
+                    anchor_reason=anchor.reason,
+                )
 
         while queue:
             node = queue.popleft()

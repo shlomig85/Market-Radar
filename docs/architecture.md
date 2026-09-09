@@ -239,7 +239,20 @@ Four properties are load-bearing:
 
 Measured on held-out filing phrasings the rules were not fitted to: **precision 1.00, recall 0.29**.
 The graph is therefore sparse and honest rather than complete; `marketradar graph` prints every edge
-with its citation, and `(no evidence — hand-entered)` where there is none.
+with its citation and both companies' names, and `(no evidence — hand-entered)` where there is none.
+
+Two properties exist because the first live run over real filings violated them (plan doc §12):
+abbreviation periods are neutralised before matching, since `[^.;]` windows otherwise stop at the
+period in "Inc." and drop every supplier after the first in an enumeration; and a rule cue ending on
+an infinitive-taking verb is rejected, since "…need **to** determine…" is not "we sell **to** X".
+
+### 8.2 Reaching companies from a theme
+
+Exposure mapping anchors on two things (ADR-016): the concept nodes a subject declares, and the
+**companies the theme's own evidence names**. The second is not a convenience — a graph read out of
+real filings has few concept nodes, so concept anchors alone mapped a genuine live theme to zero
+companies. A company anchor is first-order by construction and carries a reason instead of a hop
+path; `path.anchored_by` distinguishes the two, and neither kind is ever an unexplained row.
 
 ---
 

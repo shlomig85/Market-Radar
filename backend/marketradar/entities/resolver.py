@@ -58,6 +58,9 @@ _TOO_GENERIC = frozenset(
         "one", "open", "or", "partners", "real", "service", "services", "solutions",
         "some", "systems", "technologies", "technology", "the", "to", "top", "true",
         "two", "united", "was", "were", "with",
+        # Observed colliding with real SEC issuers in a live run over filing prose.
+        "discount", "various", "match", "block", "signal", "range", "amounts", "value",
+        "market", "power", "target", "science", "vision", "summit", "national",
     ]
 )
 
@@ -265,15 +268,49 @@ class EntityResolver:
             return []
         out: list[_Candidate] = []
         for match in self._name_re.finditer(text):
-            forms = self._by_surface.get(match.group(0).lower(), [])
+            matched = match.group(0)
+            forms = self._by_surface.get(matched.lower(), [])
             if not forms:
                 continue
+
+            penalty = 1.0
+            if " " not in matched.strip():
+                credibility = self._single_token_credibility(text, match)
+                if credibility == 0.0:
+                    continue
+                penalty = credibility
+
             best = max(forms, key=lambda f: f.base_confidence)
             others = [f.company_key for f in forms if f.company_key != best.company_key]
             # Ambiguity lowers confidence rather than being silently resolved.
-            confidence = best.base_confidence * (0.6 if others else 1.0)
+            confidence = best.base_confidence * (0.6 if others else 1.0) * penalty
             out.append(_Candidate(match.start(), match.end(), best, confidence, others))
         return out
+
+    @staticmethod
+    def _single_token_credibility(text: str, match: re.Match[str]) -> float:
+        """How much to trust a ONE-WORD company name where it appears. 0.0 rejects it.
+
+        The real 8,010-issuer SEC universe contains issuers whose name reduces to a single
+        ordinary English word — Various, Discount, Core, Open, Signal, Block, Match. Matched
+        case-insensitively they fire on any prose containing that word, and a live run did
+        exactly that: Microsoft's revenue-recognition boilerplate, "...whether there is a
+        discount to be allocated based on the relative SSP of the various products...",
+        produced two company mentions at 0.92 confidence.
+
+        The signal that costs nothing and is always present: **prose capitalises a company
+        name.** A lower-case occurrence is the common noun, not the issuer. Capitalisation
+        at the start of a sentence carries no information either way ("Various factors could
+        affect..."), so it is accepted but discounted rather than trusted outright — enough
+        for a genuine "Micron reported..." to survive, not enough to outrank a real mention.
+        """
+        token = match.group(0)
+        if not token[:1].isupper():
+            return 0.0
+        prefix = text[: match.start()].rstrip(" \t")
+        if not prefix or prefix[-1] in ".!?:;\n\r":
+            return 0.60
+        return 1.0
 
     def _ticker_candidates(self, text: str) -> list[_Candidate]:
         """Tickers, gated on casing and cues.

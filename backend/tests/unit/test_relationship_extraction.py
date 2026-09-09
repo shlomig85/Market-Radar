@@ -380,8 +380,98 @@ HELD_OUT: tuple[tuple[str, tuple[tuple[str, RelationshipType, str], ...]], ...] 
 )
 
 
+#: Sentences taken verbatim from REAL SEC filings in a live pipeline run (2026-09-09,
+#: 72 documents over AAPL/MSFT/NVDA). These are worth more than every invented sentence in
+#: this file put together: they are the language the extractor actually meets. Both defects
+#: they exposed are fixed and pinned below.
+FIELD: tuple[tuple[str, str, tuple[tuple[str, RelationshipType, str], ...]], ...] = (
+    # nvda-20260125.htm — three suppliers disclosed in one sentence. The party window used
+    # to stop at the period in "Inc.", so only the FIRST was ever extracted.
+    (
+        "We purchase memory from SK Hynix Inc., Micron Technology, Inc., and Samsung.",
+        "nvda",
+        (
+            ("sec-0002120882", RelationshipType.SUPPLIES, "nvda"),
+            ("mu", RelationshipType.SUPPLIES, "nvda"),
+        ),
+    ),
+    # msft-20250930.htm — revenue-recognition boilerplate that produced a confident,
+    # entirely fictitious customer edge: the rule keyed on the "to" in "need to determine",
+    # and the resolver matched the bare lower-case words "discount" and "various" to
+    # issuers whose names are those words.
+    (
+        "We use a range of amounts to estimate SSP when we sell each of the products and "
+        "services separately and need to determine whether there is a discount to be "
+        "allocated based on the relative SSP of the various products and services.",
+        "msft",
+        (),
+    ),
+)
+
+
+@pytest.fixture
+def field_resolver() -> EntityResolver:
+    """The issuers involved in the field sentences, named as SEC names them."""
+    return EntityResolver(
+        [
+            CompanyRecord(key="nvda", name="NVIDIA CORP", ticker="NVDA"),
+            CompanyRecord(key="msft", name="MICROSOFT CORP", ticker="MSFT"),
+            CompanyRecord(key="mu", name="MICRON TECHNOLOGY INC", ticker="MU"),
+            CompanyRecord(key="sec-0002120882", name="SK hynix Inc.", ticker=None),
+            # Issuers whose names are ordinary English words. The real 8,010-issuer
+            # universe is full of these; they are why the casing gate exists.
+            CompanyRecord(key="various", name="Various Inc.", ticker="VARI"),
+            CompanyRecord(key="discount", name="Discount Holdings", ticker="DISC"),
+            CompanyRecord(key="range", name="Range Resources Corporation", ticker="RRC"),
+        ]
+    )
+
+
+def test_all_three_suppliers_survive_an_abbreviation_period(
+    field_resolver: EntityResolver,
+) -> None:
+    """`[^.;]` windows used to die on "Inc.", losing every supplier after the first."""
+    found = extract_relationships(FIELD[0][0], FIELD[0][1], field_resolver)
+    assert {r.source_entity_key for r in found} == {"sec-0002120882", "mu"}
+
+
+def test_accounting_boilerplate_produces_no_customer_edge(
+    field_resolver: EntityResolver,
+) -> None:
+    """The live false positive, pinned. Two guards must each be sufficient alone."""
+    assert extract_relationships(FIELD[1][0], FIELD[1][1], field_resolver) == []
+    # The resolver alone must also refuse the bare lower-case words.
+    assert field_resolver.resolve(FIELD[1][0]) == []
+
+
+def test_field_sentences_score_clean(field_resolver: EntityResolver) -> None:
+    """Scored per filer, because these sentences come from different companies' filings."""
+    scored = [
+        _score(((sentence, expected),), field_resolver, filer=filer)
+        for sentence, filer, expected in FIELD
+    ]
+    totals = tuple(sum(s[i] for s in scored) for i in (2, 3, 4))
+    spurious = [item for s in scored for item in s[5]]
+    misses = [item for s in scored for item in s[6]]
+    tp, fp, fn = totals
+    precision = tp / (tp + fp or 1)
+    recall = tp / (tp + fn or 1)
+    print(
+        f"\nfield set (real SEC filings): precision={precision:.3f} recall={recall:.3f} "
+        f"(tp={tp} fp={fp} fn={fn})"
+    )
+    for sentence, extra in spurious:
+        print(f"  FALSE POSITIVE {extra} <- {sentence}")
+    for sentence, missed in misses:
+        print(f"  MISSED         {missed} <- {sentence}")
+    assert precision >= 0.99, f"spurious edges on real filings: {spurious}"
+    assert recall >= 0.99, f"missed edges on real filings: {misses}"
+
+
 def _score(
-    labelled: tuple[tuple[str, tuple], ...], resolver: EntityResolver
+    labelled: tuple[tuple[str, tuple], ...],
+    resolver: EntityResolver,
+    filer: str = FILER,
 ) -> tuple[float, float, int, int, int, list, list]:
     true_positives = false_positives = false_negatives = 0
     misses: list[tuple[str, tuple]] = []
@@ -390,7 +480,7 @@ def _score(
     for sentence, expected in labelled:
         produced = {
             (r.source_entity_key, r.relationship, r.target_entity_key)
-            for r in extract_relationships(sentence, FILER, resolver)
+            for r in extract_relationships(sentence, filer, resolver)
             # Concept edges are scored separately; this set labels company-to-company edges.
             if r.target_entity_type is EntityType.COMPANY
         }

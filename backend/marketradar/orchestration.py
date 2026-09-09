@@ -36,7 +36,7 @@ from marketradar.ingestion.relationships import (
     extract_entity_relationships,
 )
 from marketradar.logging import get_logger
-from marketradar.mapping.exposure import compute_exposures
+from marketradar.mapping.exposure import compute_exposures, evidence_anchors
 from marketradar.mapping.value_chain import Anchor
 from marketradar.providers import ProviderRegistry, build_default_registry
 from marketradar.providers.base import ProviderQuery
@@ -181,6 +181,26 @@ def _finalise_theme(
         for subject in subjects
         if (spec := SUBJECT_ANCHORS.get(subject)) is not None
     ]
+    # Concept anchors alone only work when the graph contains concept nodes, which a graph
+    # read out of real filings largely does not: a live SEC run formed a genuine theme and
+    # mapped it to zero companies. The companies the theme's own evidence names are the
+    # entry point that is always present, so both kinds of anchor are used together.
+    window_start = min(
+        (a.trend.observation_start for a in formed.activations), default=as_of
+    )
+    anchors.extend(
+        evidence_anchors(
+            session,
+            subjects=set(subjects),
+            window_start=window_start,
+            as_of=as_of,
+            subject_weights={
+                subject: spec[2]
+                for subject in subjects
+                if (spec := SUBJECT_ANCHORS.get(subject)) is not None
+            },
+        )
+    )
     exposures = compute_exposures(session, theme, anchors, as_of)
     result.exposures_created += len(exposures)
 

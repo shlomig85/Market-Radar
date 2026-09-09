@@ -301,3 +301,37 @@ same held-out set.
 **Also.** The extractor is first-person (`"our suppliers include ..."`), so it needs to know who "we"
 is. Documents with no identified filer — news articles, industry reports — yield no edges rather than
 edges attributed to a guess.
+
+---
+
+## ADR-016 — A theme anchors on the companies its own evidence names, not only on concepts
+
+**Decision.** Theme-to-company mapping starts from two kinds of anchor: the concept nodes a subject
+declares (`SUBJECT_ANCHORS`), and the **companies named by the evidence that formed the theme**
+(`mapping/exposure.evidence_anchors`). A company anchor is first-order by construction and carries a
+reason instead of a hop path. Separately, evidence extracted from a filing falls back to the filer as
+its entity when the sentence names no company.
+
+**Alternatives.** (a) Concept anchors only, as before. (b) Extend the concept lexicon until real
+filings hit it. (c) Attach every company mentioned anywhere in a document to the theme.
+
+**Why.** A live SEC run formed a genuine theme from 72 real filings and mapped it to **zero**
+companies. A knowledge graph read out of filings is almost entirely company-to-company — filings
+state who supplies whom, and rarely describe their own products in whatever vocabulary a concept
+lexicon happens to contain — so a traversal that can only start at concept nodes starts at entities
+the graph does not have. Extending the lexicon (b) is the same bet that produced the empty result,
+one vocabulary later, and is the hardcoded-subject problem (audit C6) wearing a different hat. (c)
+would attach a company to a theme for being mentioned, which is not evidence of exposure.
+
+The companies a theme's evidence is *about* are the entry point that always exists, and they are the
+most direct exposure there is. The filer fallback is the same principle one level down: a 10-K's
+"demand for our products increased" is a claim about the filer, and treating it as entity-less threw
+away most of what real filings say. On the development corpus the fallback took company-attributed
+events from 3 to 26.
+
+**Cost.** Anchor weight is a judgement, not a measurement: it saturates as `1 - e^(-clusters/2)`
+against the subject's own anchor weight, so a company named by one cluster anchors at 0.39 and by
+five at 0.92. The shape is borrowed from signal strength for consistency; the constant is not
+calibrated against anything. An evidence-anchored exposure also has no hop path, so `path.hops` is
+empty and `path.anchored_by` says `"evidence"` — the UI and any reader must treat the two kinds of
+explanation differently rather than assuming every exposure has a traversal behind it.
