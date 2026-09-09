@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from marketradar.domain.enums import DataMode, SourceClass, SourceType
+from marketradar.domain.enums import DataMode, Direction, SourceClass, SourceType
 from marketradar.domain.models import Company, Source, SourceDocument, Subject
 from marketradar.evidence.extractor import SUBJECT_LEXICON
 from marketradar.ingestion.subjects import (
@@ -192,3 +192,83 @@ def test_a_declared_topic_is_not_also_discovered_separately(
     keys = {key for (key,) in session.execute(select(Subject.key)).all()}
     assert "ai_infrastructure" in keys
     assert "artificial_intelligence" not in keys
+
+
+def test_a_subject_that_no_longer_qualifies_is_retracted(
+    session: Session, corpus: None
+) -> None:
+    """Discovery output is derived data and must be withdrawable.
+
+    Without this, a subject discovered once is a subject forever: a live run left website
+    furniture — "cookie preference", "reprint permission advertising" — sitting in the table
+    long after the filter that rejects them was in place, because refresh only ever added.
+    """
+    stale = Subject(
+        key="cookie_preference",
+        term="cookie preference",
+        first_seen_at=AS_OF,
+        last_seen_at=AS_OF,
+        discovered_at=AS_OF,
+        is_discovered=True,
+        discovery_version="old",
+        data_mode=DataMode.LIVE,
+    )
+    session.add(stale)
+    session.flush()
+
+    report = refresh_subjects(session, as_of=AS_OF)
+
+    assert report.retracted >= 1
+    assert session.scalar(select(Subject).where(Subject.key == "cookie_preference")) is None
+
+
+def test_a_declared_subject_is_never_retracted(session: Session, corpus: None) -> None:
+    """Lexicon subjects were not discovered, so discovery does not get to withdraw them."""
+    refresh_subjects(session, as_of=AS_OF)
+    keys = {key for (key,) in session.execute(select(Subject.key)).all()}
+    assert set(SUBJECT_LEXICON) <= keys
+
+
+def test_a_subject_still_referenced_by_evidence_survives(
+    session: Session, corpus: None
+) -> None:
+    """Retracting a subject that evidence points at would strand those rows."""
+    from marketradar.domain.models import EvidenceItem, SourceDocument
+
+    document = session.scalars(select(SourceDocument)).first()
+    assert document is not None
+    session.add(
+        EvidenceItem(
+            document_id=document.id,
+            claim="c",
+            excerpt="e",
+            excerpt_start=0,
+            excerpt_end=1,
+            confidence=0.8,
+            direction=Direction.NEUTRAL,
+            subject_key="niche_topic",
+            extracted_by="test",
+            extractor_version="test",
+            rule_key="r#1",
+            data_mode=DataMode.LIVE,
+            event_at=AS_OF,
+            published_at=AS_OF,
+            retrieved_at=AS_OF,
+        )
+    )
+    session.add(
+        Subject(
+            key="niche_topic",
+            term="niche topic",
+            first_seen_at=AS_OF,
+            last_seen_at=AS_OF,
+            discovered_at=AS_OF,
+            is_discovered=True,
+            discovery_version="old",
+            data_mode=DataMode.LIVE,
+        )
+    )
+    session.flush()
+
+    refresh_subjects(session, as_of=AS_OF)
+    assert session.scalar(select(Subject).where(Subject.key == "niche_topic")) is not None

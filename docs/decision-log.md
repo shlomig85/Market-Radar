@@ -361,6 +361,13 @@ double-counts them into events. (b) throws away the documents, which are the exp
 part that is not derived — and on a rate-limited source, re-fetching to fix a regex is absurd. (c)
 gives up idempotency, which is what makes a partial failure safe to re-run.
 
+**Also (2026-09-09).** The same rule applies to **discovered subjects**. A run that predated the
+website-furniture filter left "cookie preference" and "reprint permission advertising" in the
+`subjects` table long after the filter was in place, because refresh only ever added rows. A
+discovered subject not in the current candidate set is now withdrawn — unless evidence still
+references it, since retracting it would strand those rows. Declared lexicon subjects are never
+withdrawn: discovery did not create them, so it does not get to remove them.
+
 **Cost.** Retraction is destructive by design, so the boundary between derived and curated data has
 to be exactly right — hence the new column, rather than inferring intent from whether an edge happens
 to carry a citation. Research reports are *not* deleted: a report is a published artefact and quietly

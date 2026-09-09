@@ -39,7 +39,7 @@ from datetime import datetime, timedelta
 
 from marketradar.trends.engine import bounded_change
 
-DISCOVERY_VERSION = "subject_discovery_v1"
+DISCOVERY_VERSION = "subject_discovery_v2"
 
 #: A term must be supported by at least this many INDEPENDENT ancestry clusters. Two is a
 #: coincidence; three separate origins reporting the same thing is a topic.

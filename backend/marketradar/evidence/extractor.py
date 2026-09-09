@@ -24,7 +24,9 @@ EXTRACTOR_NAME = "rule_extractor"
 #: look already-done and the fix never reaches stored data. A bump retracts the previous
 #: version's output (marketradar.ingestion.retraction) and re-extracts.
 #: 1.1.0 — evidence from a filing falls back to the filer when the sentence names nobody.
-EXTRACTOR_VERSION = "1.1.0"
+#: 1.2.0 — an uncued ticker now requires the issuer's name in the same text, which
+#: changes which company evidence is attributed to (HBM was resolving to a copper miner).
+EXTRACTOR_VERSION = "1.2.0"
 
 
 @dataclass(frozen=True)

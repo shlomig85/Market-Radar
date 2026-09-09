@@ -90,7 +90,8 @@ def pipeline(
     if result.subjects.considered:
         typer.echo(
             f"Subjects:   {result.subjects.created} new, "
-            f"{result.subjects.updated} updated"
+            f"{result.subjects.updated} updated, "
+            f"{result.subjects.retracted} retracted"
             + (
                 f" — top: {', '.join(result.subjects.top_terms[:5])}"
                 if result.subjects.top_terms

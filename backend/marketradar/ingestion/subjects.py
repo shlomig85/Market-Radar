@@ -36,6 +36,8 @@ class SubjectReport:
     considered: int = 0
     created: int = 0
     updated: int = 0
+    #: Discovered subjects withdrawn because they no longer qualify.
+    retracted: int = 0
     top_terms: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
@@ -182,6 +184,22 @@ def refresh_subjects(
         row.first_seen_at = min(row.first_seen_at, candidate.first_seen_at)
         row.last_seen_at = max(row.last_seen_at, candidate.last_seen_at)
         report.updated += 1
+
+    # --- retract subjects that no longer qualify ---------------------------
+    # Discovery output is derived data and must be withdrawable, exactly like evidence
+    # (ADR-017). Without this, a subject discovered once is a subject forever: a run that
+    # produced website furniture left "cookie preference" and "reprint permission" sitting
+    # in the table after the filter that would have rejected them was already in place.
+    #
+    # A subject still referenced by evidence is kept whatever discovery says this run —
+    # deleting it would strand rows that point at it.
+    in_use = subjects_with_evidence(session)
+    still_found = {candidate.key for candidate in candidates}
+    for subject in session.scalars(select(Subject).where(Subject.is_discovered.is_(True))).all():
+        if subject.key in still_found or subject.key in in_use:
+            continue
+        session.delete(subject)
+        report.retracted += 1
 
     session.flush()
     report.top_terms = [candidate.term for candidate in candidates[:10]]
