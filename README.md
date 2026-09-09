@@ -186,7 +186,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 321 tests
+make test              # 324 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```

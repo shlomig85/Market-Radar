@@ -435,3 +435,56 @@ def test_a_probe_failure_reports_the_whole_reason() -> None:
     probe = provider.probe()[0]
     assert not probe.reachable
     assert "404" in probe.status
+
+
+# ------------------------------------------- observed on a real live run
+def test_an_article_on_a_different_host_from_its_feed_is_fetched() -> None:
+    """The bug that collapsed the whole corpus.
+
+    CNBC's feed is on `search.cnbc.com` and its articles on `www.cnbc.com`; MarketWatch's
+    feed is on `dowjones.io` and its articles on `marketwatch.com`. A static allowlist
+    derived from feed URLs refused nearly every article body, so every item fell back to a
+    short summary and most were dropped — leaving the one publisher whose feed and articles
+    share a host as effectively the entire corpus, and its page footer as the "subjects".
+    """
+    rss = RSS.replace("https://example.test/articles/", "https://www.elsewhere.test/articles/")
+    feed = FeedDescriptor(
+        key="wire",
+        name="Wire",
+        publisher="Wire",
+        url="https://feeds.example.test/rss",
+        source_type=SourceType.MAJOR_FINANCIAL_MEDIA,
+        source_class=SourceClass.FINANCIAL_MEDIA,
+        base_quality=70,
+    )
+    provider = RssFeedProvider(
+        _client(
+            _serving(
+                **{
+                    "https://feeds.example.test/rss": rss,
+                    "https://www.elsewhere.test/articles/memory-prices": ARTICLE,
+                }
+            ),
+            hosts=("feeds.example.test",),  # the ARTICLE host is deliberately absent
+        ),
+        feeds=(feed,),
+    )
+    document = provider.get_recent_documents().documents[0]
+    assert document.payload["body_source"] == "article", (
+        "a feed's own article link must be fetchable even on another host"
+    )
+
+
+def test_a_host_resolving_to_a_private_address_is_still_refused() -> None:
+    """Article hosts are now trusted from feeds, so the real SSRF guard must not be the
+    host list. Reaching cloud metadata or internal services is the threat, and it is
+    refused whatever any allowlist says."""
+    client = SafeHttpClient(allowed_hosts=["localhost"])
+    with pytest.raises(UnsafeUrlError, match="non-public address"):
+        client.check_url("https://localhost/internal")
+
+
+def test_an_unresolvable_host_is_refused_rather_than_attempted() -> None:
+    client = SafeHttpClient(allowed_hosts=["nx.invalid"])
+    with pytest.raises(UnsafeUrlError, match="could not be resolved"):
+        client.check_url("https://nx.invalid/x")

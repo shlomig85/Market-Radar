@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import urlparse
 from xml.etree import ElementTree
 
 from marketradar.domain.enums import (
@@ -620,7 +621,15 @@ class RssFeedProvider:
 
     # -- internals ------------------------------------------------------
     def _fetch_feed(self, feed: FeedDescriptor) -> list[FeedItem]:
-        return parse_feed(self._client.get_text(feed.url))
+        items = parse_feed(self._client.get_text(feed.url))
+        # The feed has now told us where its articles live. Those hosts are permitted for
+        # the rest of this run: a publisher's feed endpoint and its article pages are
+        # routinely different hosts, and refusing the second means never reading an article.
+        for item in items:
+            host = urlparse(item.url).hostname
+            if host:
+                self._client.allow_host(host)
+        return items
 
     def _to_document(
         self, feed: FeedDescriptor, item: FeedItem

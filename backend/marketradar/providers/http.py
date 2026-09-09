@@ -7,10 +7,12 @@ malicious or manipulated document cannot steer the system into fetching an inter
 
 from __future__ import annotations
 
+import socket
 import threading
 import time
 from collections import deque
 from collections.abc import Callable
+from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlparse
 
@@ -84,6 +86,10 @@ class SafeHttpClient:
         self._rate_limiter = rate_limiter
         self._max_response_bytes = max_response_bytes
         self._max_redirects = max_redirects
+        # With an injected transport no socket is opened, so there is no address to
+        # guard — and resolving hostnames that exist only in a test would fail. The
+        # check is therefore tied to whether this client can actually reach a network.
+        self._verify_addresses = transport is None
         self._client = httpx.Client(
             timeout=timeout_seconds,
             headers=headers or {},
@@ -95,6 +101,24 @@ class SafeHttpClient:
             follow_redirects=False,
             transport=transport,
         )
+
+    def allow_host(self, host: str) -> None:
+        """Permit a host discovered at runtime.
+
+        A subscribed feed declares the URLs of its own articles, and those routinely sit on
+        a different host from the feed endpoint: CNBC's feed is on ``search.cnbc.com`` and
+        its articles on ``www.cnbc.com``; MarketWatch's feed is on ``dowjones.io`` and its
+        articles on ``marketwatch.com`` — a different domain entirely. A static allowlist
+        derived from feed URLs therefore blocked almost every article body, which collapsed
+        the corpus to the one publisher whose feed and articles share a host.
+
+        Subscribing to a feed IS the decision to read what it publishes, so its declared
+        links are permitted. The protection that matters does not come from the host list
+        anyway — see ``_check_public_address``.
+        """
+        cleaned = host.strip().lower()
+        if cleaned:
+            self._allowed_hosts.add(cleaned)
 
     def check_url(self, url: str) -> None:
         parsed = urlparse(url)
@@ -108,6 +132,40 @@ class SafeHttpClient:
                 host=host,
                 allowed=sorted(self._allowed_hosts),
             )
+        if self._verify_addresses:
+            self._check_public_address(host, url)
+
+    @staticmethod
+    def _check_public_address(host: str, url: str) -> None:
+        """Refuse anything that resolves to a non-public address.
+
+        This is the real SSRF defence, and it holds even as hosts are added at runtime: the
+        threat is reaching cloud metadata endpoints and internal services, not fetching an
+        unexpected publisher. A host list cannot anticipate every CDN a publisher uses, but
+        "this resolves to 169.254.169.254 / 10.x / localhost" is decidable and is refused
+        regardless of what any allowlist says.
+        """
+        try:
+            resolved = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
+        except OSError as exc:
+            raise UnsafeUrlError("Host could not be resolved", url=url, host=host) from exc
+
+        for entry in resolved:
+            address = ip_address(entry[4][0])
+            if (
+                address.is_private
+                or address.is_loopback
+                or address.is_link_local
+                or address.is_reserved
+                or address.is_multicast
+                or address.is_unspecified
+            ):
+                raise UnsafeUrlError(
+                    "Host resolves to a non-public address",
+                    url=url,
+                    host=host,
+                    address=str(address),
+                )
 
     def _get(self, url: str) -> httpx.Response:
         current = url
