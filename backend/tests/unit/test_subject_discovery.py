@@ -230,3 +230,59 @@ def test_every_candidate_reports_what_earned_it_its_place() -> None:
     assert 0.0 <= candidate.specificity <= 1.0
     assert candidate.example_documents, "a discovered subject must be traceable to documents"
     assert candidate.first_seen_at <= candidate.last_seen_at
+
+
+# ------------------------------------------- observed on real feed data
+def test_a_publishers_own_furniture_never_becomes_a_subject() -> None:
+    """A live run over real feeds returned "may earn compensation", "affiliate link
+    policy" and "california privacy right" as discovered subjects.
+
+    Those are cookie notices, affiliate disclosures and copyright footers: on every page a
+    site publishes and on nobody else's. The corpus-wide ratio cannot catch them — one
+    publisher's footer is a small share of a multi-publisher corpus — so saturation is
+    measured per source, which needs no list of known boilerplate phrases.
+    """
+    corpus = []
+    footer = "Ars Technica may earn compensation on sales from affiliate link policy pages."
+    for index in range(8):
+        corpus.append(
+            SubjectObservation(
+                document_id=f"ars{index}",
+                text=f"Report {index} on solid state batteries entering production. {footer}",
+                published_at=AS_OF - timedelta(days=index + 1),
+                cluster_id=f"ars-c{index}",
+                source_key="arstechnica",
+            )
+        )
+    # A second publisher covering the same topic WITHOUT that footer. Furniture is the
+    # contrast between sources, so there has to be something to contrast against.
+    for index in range(6):
+        corpus.append(
+            SubjectObservation(
+                document_id=f"journal{index}",
+                text="Solid state batteries are moving into pilot production lines.",
+                published_at=AS_OF - timedelta(days=index + 1),
+                cluster_id=f"journal-c{index}",
+                source_key="journal",
+            )
+        )
+    found = terms(discover_subjects(corpus, as_of=AS_OF))
+    for furniture in ("earn compensation", "affiliate link policy", "affiliate link"):
+        assert furniture not in found, furniture
+    # The actual topic survives the filter that removes the furniture around it.
+    assert any("solid state" in term for term in found)
+
+
+def test_furniture_detection_needs_enough_documents_from_that_source() -> None:
+    """Two documents from one publisher say nothing about what that publisher repeats."""
+    corpus = [
+        SubjectObservation(
+            document_id=f"d{index}",
+            text="Perovskite tandem cells reached a new efficiency milestone.",
+            published_at=AS_OF - timedelta(days=index + 1),
+            cluster_id=f"c{index}",
+            source_key="journal",
+        )
+        for index in range(3)
+    ]
+    assert any("perovskite" in term for term in terms(discover_subjects(corpus, as_of=AS_OF)))

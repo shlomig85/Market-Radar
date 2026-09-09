@@ -406,3 +406,58 @@ retracted, then re-extracted from the same 38 documents with no re-fetching.
 Both extractor versions are now `1.1.0` / `rel-1.1.0`, so the next run on any existing
 database will retract and re-extract automatically.
 
+
+---
+
+## 14. First discovery run on real feeds (observed 2026-09-09)
+
+Real RSS ingestion plus the SEC universe, then `subjects` and `trending`. Both outputs were
+wrong, in ways only real data could have shown.
+
+### D6 — A copper miner ranked as a top AI-memory stock (CRITICAL)
+
+```
+4  HBM   Hudbay Minerals Inc.   6.2  tailwind   AI Memory Demand
+1  CTS   CTS CORP               6.6  tailwind   AI Memory Demand
+2  BAND  Bandwidth Inc.         6.5  tailwind   AI Memory Demand
+```
+
+`HBM` is Hudbay Minerals' ticker **and** high-bandwidth memory. `CTS`, `BAND` and `SKHY`
+arrived the same way. The C4 ticker gate required an uncued ticker to be upper-case and at
+least three characters — but technical prose is full of upper-case acronyms, so the gate was
+letting through exactly the collisions it was built to stop.
+
+An uncued ticker now requires **the issuer's name to appear in the same text**. A document
+genuinely about Micron says "Micron" somewhere; one about high-bandwidth memory does not say
+"Hudbay Minerals". The cost is a ticker-only mention; the gain is removing a whole class of
+confident, absurd attribution. An explicitly cued ticker (`(HBM)`, `NYSE: HBM`) still
+resolves alone — a cue *is* the corroboration.
+
+### D7 — Website furniture presented as discovered subjects (HIGH)
+
+```
+may earn compensation · affiliate link policy · california privacy right
+reproduced distributed transmitte · around the web · site constitute acceptance
+```
+
+Cookie notices, affiliate disclosures and copyright footers. Two causes, both fixed:
+
+* **Article extraction swallowed page chrome.** `extract_text` was written for SEC filings,
+  which have no navigation or affiliate blocks. It now drops `nav`, `footer`, `aside`,
+  `form`, and containers whose class or id marks them as chrome.
+* **The corpus-wide frequency ceiling cannot see furniture.** One publisher's footer is on
+  every page it publishes and on nobody else's, so it never approaches a corpus-wide
+  threshold. Saturation is now measured **per source**.
+
+The instructive part is the first attempt at that second fix: rejecting any term that
+saturates one publisher also rejected "grid storage" from a corpus entirely about grid
+storage. A trade journal's *beat* saturates its source exactly as its footer does.
+Furniture is a **contrast between** sources — a term that saturates one publisher and is
+essentially absent from the others — and with a single source there is no contrast to
+measure, so nothing is called furniture.
+
+### Still open
+
+The ratings above read `DEMO` because the synthetic corpus was ingested alongside the live
+one. Every row is labelled correctly and nothing is mislabelled, but a pure-LIVE run needs
+the fixture providers switched off.

@@ -333,6 +333,15 @@ class EntityResolver:
             cued = bool(_TICKER_CUE.search(text[max(0, match.start() - 12) : match.start()]))
             if len(token) < MIN_UNCUED_TICKER_LENGTH and not cued:
                 continue
+            # An uncued ticker must be CORROBORATED by the issuer's name appearing in the
+            # same text. Technical prose is full of upper-case acronyms, and a live run put
+            # Hudbay Minerals — a copper miner, ticker HBM — at the top of an AI-memory
+            # ranking because "HBM" is also high-bandwidth memory. CTS, BAND and SKHY came
+            # in the same way. A document genuinely about an issuer names it somewhere;
+            # requiring that costs a ticker-only mention and buys out a whole class of
+            # confident, absurd attributions.
+            if not cued and not self._name_appears(text, forms[0].company_key):
+                continue
 
             best = forms[0]
             others = [f.company_key for f in forms if f.company_key != best.company_key]
@@ -341,6 +350,20 @@ class EntityResolver:
                 confidence *= 0.6
             out.append(_Candidate(match.start(), match.end(), best, confidence, others))
         return out
+
+    def _name_appears(self, text: str, company_key: str) -> bool:
+        """True when a company's own name (not just its ticker) occurs in the text."""
+        company = self._companies.get(company_key)
+        if company is None:  # pragma: no cover - defensive
+            return False
+        lowered = text.lower()
+        for candidate in (company.name, *company.aliases, *company.former_names):
+            for surface in suffix_chain(candidate):
+                if not _is_usable_name_surface(surface):
+                    continue
+                if re.search(rf"(?<!\w){re.escape(surface.lower())}(?!\w)", lowered):
+                    return True
+        return False
 
     # ------------------------------------------------------------------
     def resolve_one(self, text: str) -> EntityMatch | None:

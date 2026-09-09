@@ -84,10 +84,22 @@ def test_short_tickers_require_a_cue_even_when_uppercase(resolver):
     assert [m.company_key for m in cued] == ["on_semi"]
 
 
-def test_longer_ticker_resolves_without_a_cue(resolver):
-    matches = resolver.resolve("We remain positive on GOOGL after the quarter.")
-    assert [m.company_key for m in matches] == ["alphabet"]
-    assert matches[0].confidence < 0.9, "an uncued ticker is weaker than a cued one"
+def test_an_uncued_ticker_needs_the_issuer_named_somewhere(resolver):
+    """Length alone used to be enough for an uncued ticker. A live run disproved it.
+
+    Upper-case acronyms are everywhere in technical prose, so "HBM" put a copper miner at
+    the top of an AI-memory ranking. A document genuinely about an issuer names it; that
+    corroboration is now required, and it stays weaker than an explicitly cued mention.
+    """
+    bare = resolver.resolve("We remain positive on GOOGL after the quarter.")
+    assert bare == [], "a bare acronym is not evidence of an issuer"
+
+    corroborated = resolver.resolve(
+        "We remain positive on Alphabet; GOOGL rose after the quarter."
+    )
+    assert "alphabet" in {match.company_key for match in corroborated}
+    ticker_match = next(m for m in corroborated if m.surface == "GOOGL")
+    assert ticker_match.confidence < 0.9, "an uncued ticker is weaker than a cued one"
 
 
 # ------------------------------------------------------------- ambiguity
@@ -182,3 +194,36 @@ def test_matches_carry_offsets_into_the_source_text(resolver):
     text = "Earlier, Caterpillar Inc. reported increasing demand."
     match = resolver.resolve(text)[0]
     assert text[match.start : match.end] == match.surface
+
+
+# --------------------------------------------- observed on real feed data
+def test_an_acronym_is_not_a_ticker_without_corroboration() -> None:
+    """A live run put Hudbay Minerals — a copper miner, ticker HBM — at the top of an
+    AI-memory ranking, because "HBM" is also high-bandwidth memory. CTS, BAND and SKHY
+    arrived the same way. Technical prose is full of upper-case acronyms."""
+    resolver = EntityResolver(
+        [
+            CompanyRecord(key="hudbay", name="Hudbay Minerals Inc.", ticker="HBM"),
+            CompanyRecord(key="cts", name="CTS Corporation", ticker="CTS"),
+            CompanyRecord(key="bandwidth", name="Bandwidth Inc.", ticker="BAND"),
+        ]
+    )
+    text = "Demand for HBM is accelerating as chipmakers expand CTS packaging capacity."
+    assert resolver.resolve(text) == []
+
+
+def test_a_ticker_resolves_when_the_issuer_is_actually_named() -> None:
+    resolver = EntityResolver(
+        [CompanyRecord(key="hudbay", name="Hudbay Minerals Inc.", ticker="HBM")]
+    )
+    matches = resolver.resolve("Hudbay Minerals said HBM output rose at its copper mines.")
+    assert {match.company_key for match in matches} == {"hudbay"}
+
+
+def test_an_explicitly_cued_ticker_still_resolves_alone() -> None:
+    """A cue is itself the corroboration: nobody writes (HBM) about an acronym."""
+    resolver = EntityResolver(
+        [CompanyRecord(key="hudbay", name="Hudbay Minerals Inc.", ticker="HBM")]
+    )
+    assert [m.company_key for m in resolver.resolve("Shares of (HBM) fell today.")] == ["hudbay"]
+    assert [m.company_key for m in resolver.resolve("NYSE: HBM closed lower.")] == ["hudbay"]

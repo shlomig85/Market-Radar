@@ -16,11 +16,27 @@ import re
 
 #: Blocks whose contents are never prose. Inline XBRL hides machine-readable facts inside
 #: <ix:header> which would otherwise dominate the extracted text.
+#: Page furniture. Filings do not have navigation or affiliate disclosures; web articles are
+#: mostly furniture by volume, and a live run over real feeds turned that furniture into
+#: "subjects" — "may earn compensation", "affiliate link policy", "california privacy right".
+#: Dropping the elements that carry it keeps it out of the corpus in the first place.
 _DROP_BLOCKS = re.compile(
-    r"<(script|style|ix:header|ix:hidden)\b[^>]*>.*?</\1\s*>",
+    r"<(script|style|ix:header|ix:hidden|nav|footer|aside|form|noscript|svg|figcaption)"
+    r"\b[^>]*>.*?</\1\s*>",
     re.IGNORECASE | re.DOTALL,
 )
 _COMMENTS = re.compile(r"<!--.*?-->", re.DOTALL)
+
+#: Containers whose class or id marks them as chrome rather than article body. Matched on
+#: the attribute text because sites name these consistently even when the tag is a bare div.
+_CHROME_CONTAINERS = re.compile(
+    r"<(div|section|ul|ol|p)\b[^>]*(?:class|id)\s*=\s*[\"\'][^\"\']*"
+    r"(?:nav|menu|footer|header|sidebar|promo|related|recirc|newsletter|subscribe"
+    r"|social|share|comment|advert|sponsor|affiliate|cookie|consent|privacy|legal"
+    r"|copyright|disclaimer|breadcrumb|pagination|tags?|byline-meta)"
+    r"[^\"\']*[\"\'][^>]*>.*?</\1\s*>",
+    re.IGNORECASE | re.DOTALL,
+)
 #: Tags that imply a line break when removed, so sentences do not run together.
 _BLOCK_LEVEL = re.compile(
     r"</?(p|div|br|tr|td|th|h[1-6]|li|table|section|article)\b[^>]*>",
@@ -50,6 +66,11 @@ def extract_text(raw: str) -> str:
         return _normalise(raw)
 
     text = _DROP_BLOCKS.sub(" ", raw)
+    # Applied twice: chrome containers nest, and one pass leaves the outer wrapper's
+    # siblings behind. Two passes is enough in practice and is bounded, unlike looping to a
+    # fixed point on adversarial markup.
+    text = _CHROME_CONTAINERS.sub(" ", text)
+    text = _CHROME_CONTAINERS.sub(" ", text)
     text = _COMMENTS.sub(" ", text)
     text = _BLOCK_LEVEL.sub("\n", text)
     text = _ANY_TAG.sub(" ", text)

@@ -55,6 +55,24 @@ MIN_CLUSTERS = 3
 #: universal they cannot distinguish anything.
 MAX_DOCUMENT_RATIO = 0.75
 
+#: A term appearing in more than this share of ONE PUBLISHER's documents is that
+#: publisher's furniture, not a topic. The first live run over real feeds returned "may earn
+#: compensation", "california privacy right", "affiliate link policy" and "reproduced
+#: distributed transmitted" — cookie notices, affiliate disclosures and copyright footers,
+#: which appear in every article a site publishes and in nobody else's.
+#:
+#: The corpus-wide ratio cannot catch these: one publisher's footer is a small share of a
+#: multi-publisher corpus. Per-source repetition is the signal, and it needs no list of
+#: known boilerplate phrases — it learns each site's furniture from the site itself.
+MAX_SOURCE_RATIO = 0.5
+
+#: Per-source detection needs enough documents from that source to mean anything.
+MIN_SOURCE_DOCUMENTS = 4
+
+#: A term saturating one publisher is furniture only if OTHER publishers barely use it.
+#: Above this share elsewhere, it is a subject that publisher happens to cover heavily.
+FURNITURE_ELSEWHERE_RATIO = 0.1
+
 #: Below this many documents the ratio above is not a statistic, it is noise: in a corpus of
 #: five articles all about one topic, that topic appears in 100% of documents and a ceiling
 #: rejects the only real subject present. Independent-cluster support and the stopword list
@@ -183,6 +201,8 @@ class SubjectObservation:
     #: Ancestry cluster. Documents repeating one announcement share this, which is what
     #: stops a syndicated story from minting a subject.
     cluster_id: str | None = None
+    #: Which publisher this came from. Used to detect that publisher's own boilerplate.
+    source_key: str | None = None
 
 
 @dataclass
@@ -323,6 +343,38 @@ def _is_subsumed(term: str, clusters: int, kept: dict[str, int]) -> bool:
     return False
 
 
+def _is_publisher_furniture(
+    by_source: dict[str, set[str]], source_totals: dict[str, int]
+) -> bool:
+    """True when a term saturates ONE publisher and is largely absent from the others.
+
+    Furniture is a *contrast between* sources, not saturation alone. A site's legal footer
+    is on every page it publishes and on nobody else's; a site's **beat** — a trade journal
+    that only covers semiconductors — also saturates that source, but other publishers use
+    the term too. Testing saturation alone cannot tell them apart, and rejected "grid
+    storage" from a corpus that was entirely about grid storage.
+
+    So a term is furniture only when another publisher had a fair chance to use it and
+    essentially did not. With one source in the corpus there is no contrast to measure, and
+    nothing is called furniture.
+    """
+    for source, seen in by_source.items():
+        total = source_totals.get(source, 0)
+        if total < MIN_SOURCE_DOCUMENTS or len(seen) / total <= MAX_SOURCE_RATIO:
+            continue
+        elsewhere_total = sum(
+            count for other, count in source_totals.items() if other != source
+        )
+        if elsewhere_total < MIN_SOURCE_DOCUMENTS:
+            continue  # no contrast available; cannot tell furniture from a beat
+        elsewhere_seen = sum(
+            len(documents) for other, documents in by_source.items() if other != source
+        )
+        if elsewhere_seen / elsewhere_total <= FURNITURE_ELSEWHERE_RATIO:
+            return True
+    return False
+
+
 def discover_subjects(
     observations: list[SubjectObservation],
     as_of: datetime,
@@ -346,6 +398,11 @@ def discover_subjects(
     baseline_start = as_of - timedelta(days=observation_window_days + baseline_window_days)
 
     documents: defaultdict[str, set[str]] = defaultdict(set)
+    # term -> source -> documents from that source containing it.
+    per_source: defaultdict[str, defaultdict[str, set[str]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
+    source_totals: defaultdict[str, int] = defaultdict(int)
     clusters: defaultdict[str, set[str]] = defaultdict(set)
     recent: defaultdict[str, set[str]] = defaultdict(set)
     baseline: defaultdict[str, set[str]] = defaultdict(set)
@@ -357,8 +414,11 @@ def discover_subjects(
         # A document with no cluster is its own origin rather than being lumped with every
         # other unclustered document, which would understate independence to zero.
         cluster = observation.cluster_id or f"doc:{observation.document_id}"
+        source = observation.source_key or "unknown"
+        source_totals[source] += 1
         for term in candidate_terms(observation.text):
             documents[term].add(observation.document_id)
+            per_source[term][source].add(observation.document_id)
             clusters[term].add(cluster)
             if observation.published_at >= window_start:
                 recent[term].add(cluster)
@@ -383,6 +443,8 @@ def discover_subjects(
             continue
         document_ratio = len(documents[term]) / total_documents
         if total_documents >= MIN_DOCUMENTS_FOR_RATIO and document_ratio > MAX_DOCUMENT_RATIO:
+            continue
+        if _is_publisher_furniture(per_source[term], source_totals):
             continue
 
         # Baseline is rescaled to the observation window's length so the two are comparable
@@ -426,6 +488,7 @@ __all__ = [
     "DISCOVERY_VERSION",
     "MAX_DOCUMENT_RATIO",
     "MIN_CLUSTERS",
+    "MAX_SOURCE_RATIO",
     "PREDICATE_WORDS",
     "MIN_DOCUMENTS_FOR_RATIO",
     "STOPWORDS",

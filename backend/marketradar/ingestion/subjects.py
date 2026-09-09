@@ -119,6 +119,7 @@ def refresh_subjects(
                 text=f"{document.title}. {document.body_text}",
                 published_at=document.published_at,
                 cluster_id=document.cluster_id,
+                source_key=document.source_id,
             )
             for document in documents
         ],
