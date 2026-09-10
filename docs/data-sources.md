@@ -15,7 +15,7 @@ evidence. Four mechanisms do that work, and none of them depends on trusting a p
   outranks a press release, which outranks trade press, which outranks financial media.
   The weight is fixed in the feed table below and cannot be raised by how emphatic an
   article is.
-* **Corroboration is counted in ancestry clusters, not documents.** Fourteen outlets running
+* **Corroboration is counted in ancestry clusters, not documents.** A dozen outlets running
   the same wire story are one confirmation. This is what stops a syndicated press release
   from looking like consensus.
 * **A subject must be supported by several independent clusters** before it exists at all,
@@ -26,7 +26,7 @@ evidence. Four mechanisms do that work, and none of them depends on trusting a p
 
 ## The feeds
 
-Fourteen RSS/Atom feeds, weighted by what kind of source they are. `base_quality` is the
+Sixteen RSS/Atom feeds, weighted by what kind of source they are. `base_quality` is the
 publisher's floor; individual documents can score lower, never higher.
 
 | Key | Publisher | Class | Quality |

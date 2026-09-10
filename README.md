@@ -45,7 +45,7 @@ Bull, Bear, Skeptic, Valuation, Catalyst, Risk or Investment Committee agent exi
 alerts, thesis monitoring, daily brief, backtesting or portfolio features.
 
 Live providers do exist and are verified — SEC company tickers, SEC EDGAR filings, and
-fourteen free public RSS/Atom feeds (see `docs/data-sources.md`). They are **off by default**:
+sixteen free public RSS/Atom feeds (see `docs/data-sources.md`). They are **off by default**:
 with nothing configured the pipeline runs on a clearly labelled synthetic corpus with
 fictional issuers, and every figure it produces is stamped `DEMO`. Turning them on is a
 matter of environment variables, documented under *Running against real sources* below.
