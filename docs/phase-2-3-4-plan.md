@@ -633,3 +633,38 @@ The general point is the same one §17 made about configuration. Every place thi
 keeps a hand-written list that duplicates something the code already knows — the delete
 order, the provider names in three files, the contact string in five `-e` flags — has cost a
 round trip. The lists that survive are the ones that hold judgement the code cannot derive.
+
+---
+
+## 19. The first live run at scale, and what it showed (2026-09-10)
+
+300 documents from the real feeds, `--rebuild` working. The pipeline completed. Three things
+in the output matter more than the fact that it ran.
+
+**The five most salient subjects were `confidence`, `ecosystem`, `limit`, `foundation`,
+`rely`.** Six previous rounds of stopword additions had not converged and were never going
+to: a list can only name words somebody has already seen. Replaced with keyness — how much
+more often this corpus uses a term than English does — which is a measurement rather than an
+enumeration (ADR-029). On the development corpus it removes `cycle`, `monthly` and
+`equipment` while keeping `dram`, `high-bandwidth` and `artificial intelligence`, which is
+the discrimination that was wanted.
+
+**`relationships.extracted ... edges_created=0 ... without_filer=300`.** Not one value-chain
+edge from 300 documents, because not one of them was a filing: the relationship extractor
+reads "our suppliers include X" out of 10-K text, and news articles have no filer. So the
+company exposures behind every rating currently come only from `evidence_anchors` — companies
+the news *named* — with no supply-chain traversal at all. "Who benefits" is therefore
+"who was mentioned", which is a much weaker claim than the product makes. **Not yet fixed.**
+
+**MarketWatch returns 401 for every article body.** The RSS summary is stored instead and
+labelled `body_source`, so those documents are thin rather than absent. Worth knowing when
+reading which publishers corroborate what.
+
+### On the shape of these fixes
+
+Three of the last four defects have had the same shape: a hand-maintained list that
+duplicated something the system could derive. The stopword list duplicated English word
+frequencies. The rebuild's delete order duplicated the foreign-key graph. The provider
+settings were duplicated across five `-e` flags. Each cost several rounds. The lists worth
+keeping are the ones holding judgement that cannot be derived — which sources to trust, which
+terms an operator never wants to see.

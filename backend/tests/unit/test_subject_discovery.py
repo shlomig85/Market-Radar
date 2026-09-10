@@ -501,3 +501,125 @@ def test_irregular_past_forms_are_not_subjects() -> None:
     """No suffix rule reaches these — "seen", "told", "wrote" end in neither -ed nor -ing."""
     for word in ("seen", "told", "wrote", "gone", "taken", "went", "came"):
         assert word in STOPWORDS, word
+
+
+# --------------------------------------------------------------------------- keyness
+
+
+def test_keyness_separates_ordinary_english_from_terms_of_art() -> None:
+    """The regression this measure exists for.
+
+    Every term on the left is one a real live run actually returned as a "subject". Every
+    term on the right is one it should have. A stopword list caught none of the left column
+    until somebody read the output and typed the words in; this catches them without having
+    seen them.
+    """
+    from marketradar.subjects.discovery import MIN_KEYNESS, keyness
+
+    corpus_tokens = 300 * 600  # 300 documents, roughly 600 words each
+
+    ordinary = ["confidence", "limit", "foundation", "rely", "adoption", "capability"]
+    for term in ordinary:
+        # Generous occurrence count: even said 120 times, an ordinary word stays ordinary.
+        assert keyness(term, 120, corpus_tokens) < MIN_KEYNESS, term
+
+    # Compared at the SAME occurrence count, so the separation is the words themselves
+    # rather than one list being handed more mentions than the other.
+    terms_of_art = ["semiconductor", "nvidia", "tariff", "inference"]
+    for term in terms_of_art:
+        assert keyness(term, 120, corpus_tokens) >= MIN_KEYNESS, term
+
+
+def test_a_term_of_art_outranks_a_generic_noun_that_is_more_prominent() -> None:
+    """Where the borderline cases are actually settled.
+
+    "ecosystem" sits just above the keyness floor — a corpus that says it 120 times really
+    is talking about ecosystems more than English does, so excluding it outright would be
+    the measure lying. What must hold is that it does not lead the list, which is the
+    failure the operator saw: it ranked second while nothing specific ranked at all.
+
+    So the generic noun is given every other advantage here — higher emergence, and it is
+    only distinctiveness that separates them.
+    """
+    from datetime import UTC, datetime
+
+    from marketradar.subjects.discovery import SubjectCandidate
+
+    def candidate(term: str, keyness_value: float, emergence: float, specificity: float):
+        return SubjectCandidate(
+            term=term,
+            key=term,
+            document_count=10,
+            cluster_count=9,
+            recent_clusters=6,
+            baseline_clusters=2.0,
+            first_seen_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_seen_at=datetime(2026, 9, 1, tzinfo=UTC),
+            emergence=emergence,
+            specificity=specificity,
+            keyness=keyness_value,
+        )
+
+    generic = candidate("ecosystem", 2.04, emergence=70.0, specificity=0.6)
+    specific = candidate("high-bandwidth memory", 5.97, emergence=55.0, specificity=0.9)
+    assert specific.score > generic.score
+
+
+def test_a_clause_is_not_a_subject() -> None:
+    """A copula makes a fragment of a sentence, not a topic.
+
+    Interior prepositions are allowed on purpose — they join two nouns into one thing. A
+    copula, auxiliary or relative pronoun asserts something about a noun instead, and
+    "memory is scarce" is a sentence three words long.
+    """
+    from marketradar.subjects.discovery import candidate_terms
+
+    terms = candidate_terms("High-bandwidth memory is scarce and demand that rose persists.")
+    assert "high-bandwidth memory" in terms
+    assert not [term for term in terms if " is " in f" {term} " or " that " in f" {term} "]
+    # A preposition still joins, so this remains one phrase.
+    assert "fund in asia" in candidate_terms("Sovereign wealth funds in Asia expanded.")
+
+
+def test_a_phrase_can_be_a_subject_when_its_words_are_not() -> None:
+    """"memory" is not a topic; "high-bandwidth memory" is.
+
+    English says "memory" constantly, so a corpus mentioning it is not thereby about it.
+    English essentially never says "high-bandwidth memory", so a corpus that does is telling
+    you what it is about. Getting this pair right is the whole argument for measuring rates
+    instead of keeping a list — no list can hold a word and its phrase in opposite states.
+    """
+    from marketradar.subjects.discovery import MIN_KEYNESS, keyness
+
+    corpus_tokens = 300 * 600
+    assert keyness("memory", 400, corpus_tokens) < MIN_KEYNESS
+    assert keyness("high-bandwidth memory", 45, corpus_tokens) > MIN_KEYNESS
+
+
+def test_an_unknown_word_is_treated_as_rare_not_as_impossible() -> None:
+    """Tickers, product names and new coinages are absent from any frequency table."""
+    from wordfreq import word_frequency
+
+    from marketradar.subjects.discovery import expected_rate, keyness
+
+    assert word_frequency("hyperscaler", "en") == 0.0, "premise of this test"
+    assert expected_rate("hyperscaler") > 0.0
+    assert keyness("hyperscaler", 20, 180_000) > 0.0
+
+
+def test_occurrences_are_counted_not_just_documents() -> None:
+    """Keyness is a rate, so the same term twice in a document counts twice."""
+    from marketradar.subjects.discovery import candidate_term_counts, candidate_terms
+
+    text = "Extreme ultraviolet lithography dominates. Extreme ultraviolet lithography again."
+    counts = candidate_term_counts(text)
+    assert counts["extreme ultraviolet lithography"] == 2
+    assert counts["ultraviolet lithography"] == 2
+    assert set(counts) == candidate_terms(text)
+
+
+def test_token_count_uses_the_same_tokeniser_as_the_terms() -> None:
+    """The ratio would otherwise be against two different definitions of "a word"."""
+    from marketradar.subjects.discovery import count_tokens
+
+    assert count_tokens("Memory demand is rising. Supply is not.") == 7

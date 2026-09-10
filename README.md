@@ -151,7 +151,10 @@ make docker-cli cmd="subjects"      # or against the Docker stack's database
 
 `found` means discovered from the documents; `declared` means it came from the built-in
 lexicon. A subject must be supported by several **independent** ancestry clusters, so one
-syndicated story cannot create one.
+syndicated story cannot create one, and it must be a term this corpus uses at least a
+hundred times more often than general English does (ADR-029). That second test is why
+`memory` is not a subject but `high-bandwidth memory` is: English says the first constantly
+and the second essentially never.
 
 To check which news sources are actually answering:
 
@@ -265,7 +268,7 @@ verbatim, which catches most of it; this is the operator's veto for the rest.
 ## Testing
 
 ```bash
-make test              # 349 tests
+make test              # 356 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -306,7 +309,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 28 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 30 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/data-sources.md` | every free public source read, and why it can be trusted |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |

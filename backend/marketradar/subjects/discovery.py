@@ -33,13 +33,29 @@ sit behind this same interface once there is a labelled set to measure it agains
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from math import log10
+
+try:
+    from wordfreq import word_frequency
+except ModuleNotFoundError as exc:  # pragma: no cover - a container built before this dep
+    # Worth catching by name. `wordfreq` arrived after this project's Docker image was
+    # first built, and the `cli` service mounts the source tree over the image, so a
+    # `git pull` alone brings new CODE but not new DEPENDENCIES. The bare ImportError points
+    # at a module nobody has heard of; this points at the command that fixes it.
+    raise ModuleNotFoundError(
+        "Subject discovery needs the 'wordfreq' package, which is not installed.\n"
+        "It arrived with the keyness measure that replaced the stopword list.\n\n"
+        "  Docker:  docker compose build\n"
+        "  Host:    pip install -e 'backend[dev]'\n"
+    ) from exc
+
 
 from marketradar.trends.engine import bounded_change
 
-DISCOVERY_VERSION = "subject_discovery_v2"
+DISCOVERY_VERSION = "subject_discovery_v3"
 
 #: A term must be supported by at least this many INDEPENDENT ancestry clusters. Two is a
 #: coincidence; three separate origins reporting the same thing is a topic.
@@ -377,6 +393,24 @@ PREDICATE_WORDS = _predicate_vocabulary()
 #: one-word terms: "manufacturing capacity" is a subject, bare "manufacturing" is not.
 _VERB_FORM = re.compile(r"^[a-z]{4,}(?:ed|ing)$")
 
+#: Words that turn a phrase into a clause rather than a noun phrase, wherever they sit.
+#:
+#: The edge rules already reject a term that BEGINS or ends with a stopword, and interior
+#: stopwords are deliberately allowed so "funds in Asia" survives. But a preposition joins
+#: two nouns while a copula or auxiliary asserts something about one: "memory is scarce" is
+#: a sentence fragment that happens to be three words long, not a topic. Relative pronouns
+#: do the same job ("memory that ships"). Named as a category rather than word by word,
+#: which is the same discipline ADR-022 settled on.
+CLAUSE_WORDS = frozenset(
+    [
+        "be", "is", "are", "was", "were", "been", "being", "am",
+        "has", "have", "had", "having",
+        "do", "does", "did", "doing",
+        "will", "would", "shall", "should", "can", "could", "may", "might", "must",
+        "that", "which", "who", "whom", "whose", "what", "where", "when", "why", "how",
+    ]
+)
+
 
 #: Tokens must be word-like: letters, optionally with internal digits or hyphens ("5g",
 #: "high-bandwidth"). Pure numbers and symbols are never part of a subject.
@@ -416,6 +450,12 @@ class SubjectCandidate:
     emergence: float
     #: 0..1. How much of the corpus this term does NOT appear in; boilerplate scores low.
     specificity: float
+    #: log10 of how much more often this corpus uses the term than general English does.
+    #: Complementary to ``specificity``, not a replacement: keyness catches terms that are
+    #: ordinary English ("confidence"), specificity catches terms that are ordinary for THIS
+    #: corpus and rare in English (a publisher's tagline, which scores high on keyness
+    #: precisely because English never says it). Junk arrives by both routes.
+    keyness: float = 0.0
     example_documents: list[str] = field(default_factory=list)
 
     @property
@@ -428,10 +468,16 @@ class SubjectCandidate:
         past a handful of independent origins, more of them adds little to the case.
         """
         corroboration = min(1.0, self.cluster_count / (MIN_CLUSTERS * 3))
+        # Keyness saturates at 6, which a multi-word term of art reaches easily and a single
+        # ordinary word never does. Left unbounded it would dominate the ranking outright,
+        # and "distinctive" is a qualification to be a subject rather than a reason to be
+        # the top one — what is CHANGING is still the product's question.
+        distinctiveness = min(1.0, max(0.0, self.keyness) / 6.0)
         return round(
-            max(0.0, self.emergence) * 0.6
-            + self.specificity * 100 * 0.25
-            + corroboration * 100 * 0.15,
+            max(0.0, self.emergence) * 0.5
+            + self.specificity * 100 * 0.2
+            + corroboration * 100 * 0.15
+            + distinctiveness * 100 * 0.15,
             4,
         )
 
@@ -477,14 +523,77 @@ def subject_key_for(term: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", normalise_term(term)).strip("_")
 
 
-def candidate_terms(text: str) -> set[str]:
-    """Every n-gram in a document that could plausibly name a subject.
 
-    N-grams are built per sentence so a phrase never spans a full stop, and a term may
-    neither begin nor end with a stopword — "of memory demand" and "memory demand is" are
-    fragments of the same subject, and only "memory demand" is the subject.
+# --------------------------------------------------------------------------- keyness
+#
+# A hand-maintained stopword list does not converge. Six rounds of adding words produced
+# six fresh batches of ordinary English — "expert", "leader", "concern", then "confidence",
+# "ecosystem", "limit", "foundation", "rely" — because the list can only ever name the words
+# that happened to surface in the run that was looked at. The property being tested for is
+# not membership of a list. It is that a topic is a term this corpus uses far more often
+# than English does.
+#
+# That is keyness: the log ratio of a term's rate here to its rate in general English. It is
+# a measurement rather than an enumeration, so it covers words nobody has thought of, and it
+# gets the hard cases right for the right reason. "memory" on its own scores low — English
+# says "memory" often, and a corpus that mentions it is not thereby about it — while
+# "high-bandwidth memory" scores very high, because English essentially never says that.
+# Which is the correct answer: the phrase is the topic, the word is not.
+#
+# The background model is `wordfreq`, which ships its data offline. It is LINGUISTIC
+# knowledge, not domain knowledge: a frequency table for English names no industry,
+# technology or company, so it does not reintroduce the hardcoded-vocabulary problem (C6)
+# that discovery exists to remove.
+
+#: Rate assumed for a word `wordfreq` has never seen. Real topics are routinely absent from
+#: it (tickers, product names, new coinages), and treating "unknown" as "impossible" would
+#: divide by zero; treating it as "very rare" is both true and the behaviour we want.
+UNKNOWN_WORD_RATE = 1e-9
+
+#: Minimum keyness for a term to be a subject at all.
+#:
+#: Calibrated against the terms an actual live run produced. Below this sit the generic
+#: nouns that have been the recurring failure — foundation, limit, confidence, rely,
+#: adoption, capability, ecosystem — and above it sit the specific ones: tariff, inference,
+#: semiconductor, nvidia, and every multi-word phrase, which clear it by orders of magnitude
+#: because English does not form those collocations by chance.
+MIN_KEYNESS = 2.0
+
+
+def expected_rate(term: str) -> float:
+    """How often general English would produce this term by chance.
+
+    For a phrase this is the product of its words' rates — the probability of the words
+    landing adjacent if English placed them independently. Real collocations beat that
+    product enormously, which is why a phrase that is genuinely a term of art separates so
+    cleanly from a phrase that is two ordinary words next to each other.
     """
-    found: set[str] = set()
+    rate = 1.0
+    for token in term.split():
+        rate *= max(word_frequency(token, "en"), UNKNOWN_WORD_RATE)
+    return rate
+
+
+def keyness(term: str, occurrences: int, corpus_tokens: int) -> float:
+    """log10 of how much more often this corpus says the term than English does.
+
+    0 means "exactly as often as English" — the term carries no information about what this
+    corpus is about. 2 means a hundred times more often.
+    """
+    if occurrences <= 0 or corpus_tokens <= 0:
+        return 0.0
+    observed = occurrences / corpus_tokens
+    return round(log10(observed / expected_rate(term)), 4)
+
+
+def candidate_term_counts(text: str) -> Counter[str]:
+    """Every candidate n-gram in a document, with how many times it occurs.
+
+    ``candidate_terms`` is the set form of this. Occurrences are needed because keyness is a
+    RATE: a term appearing once in a long document says something different from a term
+    appearing thirty times, and document membership alone cannot tell those apart.
+    """
+    found: Counter[str] = Counter()
     for sentence in _SENTENCE_SPLIT.split(text.lower()):
         # Normalised BEFORE any filtering, not after. Checking stopwords on the raw token
         # and folding plurals afterwards let every plural through the entire filter chain:
@@ -509,6 +618,9 @@ def candidate_terms(text: str) -> set[str]:
                     continue
                 if any(len(token) < 2 for token in gram):
                     continue
+                # A copula, auxiliary or relative pronoun anywhere makes it a clause.
+                if any(token in CLAUSE_WORDS for token in gram):
+                    continue
                 term = " ".join(gram)
                 if len(term) < MIN_TERM_CHARS:
                     continue
@@ -524,11 +636,31 @@ def candidate_terms(text: str) -> set[str]:
                 ):
                     continue
                 # A single token that is a bare number-like or all-stopword phrase is out;
-                # multi-word terms are allowed an interior stopword ("cost of capital").
+                # multi-word terms are allowed an interior stopword, so a preposition can
+                # join two nouns into one thing ("funds in Asia").
                 if all(token in STOPWORDS for token in gram):
                     continue
-                found.add(normalise_term(term))
+                found[normalise_term(term)] += 1
     return found
+
+
+def candidate_terms(text: str) -> set[str]:
+    """Every n-gram in a document that could plausibly name a subject.
+
+    N-grams are built per sentence so a phrase never spans a full stop, and a term may
+    neither begin nor end with a stopword — "of memory demand" and "memory demand is" are
+    fragments of the same subject, and only "memory demand" is the subject.
+    """
+    return set(candidate_term_counts(text))
+
+
+def count_tokens(text: str) -> int:
+    """Words in a document, by the same tokeniser that produced the candidate terms.
+
+    Keyness compares rates, so the denominator has to be counted the same way as the
+    numerator or the ratio is against two different definitions of "a word".
+    """
+    return sum(len(_TOKEN_RE.findall(sentence)) for sentence in _SENTENCE_SPLIT.split(text.lower()))
 
 
 def _contains_phrase(haystack: str, needle: str) -> bool:
@@ -710,6 +842,8 @@ def discover_subjects(
     first_seen: dict[str, datetime] = {}
     last_seen: dict[str, datetime] = {}
     examples: defaultdict[str, list[str]] = defaultdict(list)
+    occurrences: Counter[str] = Counter()
+    corpus_tokens = 0
 
     # Boilerplate is identified across the whole corpus first, then removed from every
     # document before a single candidate term is generated. Filtering terms afterwards was
@@ -723,7 +857,13 @@ def discover_subjects(
         cluster = observation.cluster_id or f"doc:{observation.document_id}"
         source = observation.source_key or "unknown"
         source_totals[source] += 1
-        for term in candidate_terms(strip_boilerplate(observation.text, boilerplate)):
+        # Boilerplate is stripped before counting as well as before mining, so a footer
+        # repeated on every page does not inflate the corpus token count it is measured
+        # against.
+        body = strip_boilerplate(observation.text, boilerplate)
+        corpus_tokens += count_tokens(body)
+        for term, count in candidate_term_counts(body).items():
+            occurrences[term] += count
             documents[term].add(observation.document_id)
             per_source[term][source].add(observation.document_id)
             clusters[term].add(cluster)
@@ -754,6 +894,14 @@ def discover_subjects(
         if _is_publisher_furniture(per_source[term], source_totals):
             continue
 
+        # The gate that made the stopword list stop growing. A term this corpus uses no
+        # more often than English does carries no information about what the corpus is
+        # about, however many independent clusters happen to contain it — and ordinary
+        # words appear in a lot of clusters precisely because they are ordinary.
+        term_keyness = keyness(term, occurrences[term], corpus_tokens)
+        if term_keyness < MIN_KEYNESS:
+            continue
+
         # Baseline is rescaled to the observation window's length so the two are comparable
         # rates rather than two raw counts over different spans.
         scale = observation_window_days / max(baseline_window_days, 1)
@@ -770,6 +918,7 @@ def discover_subjects(
                 last_seen_at=last_seen[term],
                 emergence=bounded_change(len(recent[term]), baseline_rate),
                 specificity=round(1.0 - document_ratio, 4),
+                keyness=term_keyness,
                 example_documents=examples[term],
             )
         )
@@ -793,6 +942,12 @@ def discover_subjects(
 
 __all__ = [
     "DISCOVERY_VERSION",
+    "CLAUSE_WORDS",
+    "MIN_KEYNESS",
+    "candidate_term_counts",
+    "count_tokens",
+    "expected_rate",
+    "keyness",
     "MAX_DOCUMENT_RATIO",
     "BOILERPLATE_DOCUMENTS",
     "MIN_CLUSTERS",

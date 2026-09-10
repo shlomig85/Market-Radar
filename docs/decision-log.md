@@ -747,3 +747,78 @@ the point it is added.
 hooks no longer fire during a rebuild. Nothing currently depends on them — the database
 constraints carry the relationships — but that is an assumption this note makes explicit
 rather than leaving to be discovered.
+
+---
+
+## ADR-029 — A subject is a term this corpus uses more than English does, measured not listed
+
+**Context.** Subject discovery kept returning ordinary English as topics. Six rounds of
+additions to a stopword list produced six fresh batches: "expert", "leader", "concern", then
+"faster", "broader", "told", then — from a live run over 300 real articles — `confidence`,
+`ecosystem`, `limit`, `foundation`, `rely` as the five most salient subjects in the corpus.
+The list had reached 1,242 words and was still losing.
+
+**Decision.** Measure **keyness**: `log10(rate in this corpus / rate in general English)`,
+with `wordfreq` as the background model. A term below `MIN_KEYNESS = 2.0` — that is, one this
+corpus does not use at least a hundred times more often than English does — is not a subject,
+however many independent clusters contain it. Keyness also enters the ranking at 15%, so
+distinctiveness is a qualification rather than the whole answer.
+
+**Alternatives.** (a) Keep extending the list. (b) A part-of-speech tagger, keeping noun
+phrases. (c) An LLM judging whether a term is a topic. (d) Keyness against a reference corpus.
+
+**Why.** (a) cannot converge, and the reason is structural rather than a matter of effort: a
+list can only name words somebody has already seen in an output they happened to read, and
+English has a long tail. (b) rejects "confidence" and "ecosystem" for nothing — they are
+perfectly good nouns; the problem was never their part of speech. (c) cannot be audited and
+costs money per run. (d) tests the property that actually matters, and it is the standard
+tool for the job: keyness against a reference corpus is what corpus linguistics uses to
+answer "what is this text about?"
+
+The case that settles it is a pair no list can represent. "memory" scores 1.5 and is
+rejected; "high-bandwidth memory" scores 6.0 and is kept. Both are correct — English says
+"memory" constantly, so a corpus mentioning it is not thereby about it, while English
+essentially never says "high-bandwidth memory". A word and the phrase containing it must be
+in opposite states, and no membership list can hold that.
+
+`wordfreq` is linguistic data, not domain data. A frequency table for English names no
+industry, technology or company, so it does not reintroduce the hardcoded-vocabulary problem
+(C6) that discovery exists to remove — the same argument that admitted the stopword list,
+now discharged by something that converges.
+
+**Cost.** A new runtime dependency, ~58 MB installed, which means anyone running this in
+Docker must `docker compose build` once — the `cli` service mounts the source tree, so a
+`git pull` brings new code but not new packages. The import is guarded to say so by name.
+
+Keyness does not solve everything and should not be described as if it did. Single generic
+nouns sit close to the floor: "ecosystem" scores 2.04 and survives, because a corpus that
+says it 120 times genuinely does say it more than English does. What changed is that it no
+longer *leads* — a multi-word term of art scores three times higher and outranks it. And
+keyness is blind to the other kind of junk, the term that is rare in English precisely
+because it is one publisher's furniture ("affiliate link" scores very high). That is what
+`specificity` and the verbatim-repetition boilerplate rule (ADR-021) are for. The two
+measures catch different things and both are needed.
+
+The stopword list stays, and stops growing. It still does structural work before n-grams are
+formed — rejecting a term that begins or ends with "the" — which is a different job from
+deciding whether a term is a topic.
+
+---
+
+## ADR-030 — A copula makes a clause, not a subject
+
+**Context.** Interior stopwords are deliberately allowed in a candidate term, so that a
+preposition can join two nouns into one thing ("funds in Asia"). That also admitted
+"memory is scarce" and "demand that rose" — sentence fragments that happen to be three
+words long.
+
+**Decision.** Reject any candidate containing a copula, auxiliary verb or relative pronoun
+anywhere in it, not only at its edges.
+
+**Why.** The distinction is what the word does: a preposition joins two nouns, while a
+copula or auxiliary asserts something about one, and an assertion is a claim rather than a
+topic. Naming the category rather than the individual words is the discipline ADR-022
+settled on and the opposite of the failure ADR-029 describes.
+
+**Cost.** A genuine topic containing one of these words would be lost. None is known; a
+noun phrase that needs a copula in the middle of it is not really a noun phrase.

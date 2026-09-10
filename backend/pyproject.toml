@@ -19,6 +19,11 @@ dependencies = [
     "typer>=0.12",
     "httpx>=0.27",
     "python-dateutil>=2.9",
+    # Background word-frequency model for subject discovery. Ships its data offline, so
+    # nothing here reaches the network at runtime. This is LINGUISTIC data, not domain
+    # data: a frequency table for English names no industry, technology or company, so it
+    # does not reintroduce the hardcoded-vocabulary problem discovery exists to remove.
+    "wordfreq>=3.1",
 ]
 
 [project.optional-dependencies]
