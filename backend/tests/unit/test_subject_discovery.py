@@ -441,3 +441,45 @@ def test_a_domain_noun_survives_inside_a_phrase() -> None:
     assert "high-bandwidth memory" in candidate_terms("High-bandwidth memory demand rose.")
     assert "grid energy storage" in candidate_terms("Grid energy storage expanded sharply.")
     assert "data centre" in candidate_terms("Data centre construction accelerated.")
+
+
+def test_the_plural_fold_cannot_smuggle_a_stopword_past_the_filter() -> None:
+    """"cookies" folded to "cooky" — a form on no list — so a word the filter explicitly
+    named walked straight past it. English forms both "companies" and "cookies" from an
+    "-ies" ending and only the first unfolds to "-y"; no rule short of a dictionary tells
+    them apart, so the mangled forms are generated instead."""
+    assert "cooky" in STOPWORDS
+    assert "cookie" not in candidate_terms("Cookies and tracking on this site.")
+    assert "cooky" not in candidate_terms("Cookies and tracking on this site.")
+
+
+def test_verb_forms_are_not_subjects_at_either_edge() -> None:
+    """A live run returned "getting", "going", "managing", "trying", "supporting"."""
+    found = candidate_terms("Getting and managing and supporting the rollout.")
+    for verb in ("getting", "managing", "supporting"):
+        assert not any(verb in term for term in found), verb
+    # "rollout" is a noun and survives, correctly — the rule is about verb forms, not about
+    # emptying the sentence.
+    assert "rollout" in found
+    # An interior verb form is fine: the phrase is still about a thing.
+    assert "photonic interconnect" in candidate_terms(
+        "Advanced packaging for photonic interconnects."
+    )
+
+
+def test_dates_and_contractions_are_not_subjects() -> None:
+    """"tuesday", "wednesday", "sept" and "doesn" (from "doesn't", split at the
+    apostrophe) all appeared as discovered subjects."""
+    for word in ("tuesday", "wednesday", "sept", "september", "doesn", "isn", "wasn"):
+        assert word in STOPWORDS, word
+
+
+def test_a_term_containing_a_publisher_name_is_excluded() -> None:
+    """Equality was not enough: "cnbc" was excluded and "told cnbc" was not, so the
+    publisher walked back in wearing a verb."""
+    from marketradar.subjects.discovery import _mentions_excluded
+
+    excluded = frozenset({"cnbc", "cond", "nast"})
+    assert _mentions_excluded("told cnbc", excluded)
+    assert _mentions_excluded("cond nast", excluded)
+    assert not _mentions_excluded("grid storage", excluded)

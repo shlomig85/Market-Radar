@@ -116,15 +116,16 @@ STOPWORDS = frozenset(
     "a", "able", "about", "above", "accept", "across",
     "act", "action", "activity", "actually", "add", "addendum",
     "address", "after", "afternoon", "again", "against", "age",
-    "aggregate", "ago", "agree", "ahead", "air", "all",
-    "allow", "almost", "alone", "along", "alongside", "already",
-    "also", "although", "always", "am", "amid", "among",
-    "amount", "an", "analysis", "analyst", "analysts", "and",
-    "announced", "announcement", "annual", "another", "answer", "any",
-    "anyone", "anything", "appear", "apply", "approach", "approximately",
-    "are", "area", "argue", "around", "arrive", "article",
-    "as", "ask", "asked", "asking", "assume", "assumptions",
-    "at", "attack", "attempt", "attention", "author", "available",
+    "aggregate", "ago", "agree", "ahead", "ain", "air",
+    "all", "allow", "almost", "alone", "along", "alongside",
+    "already", "also", "although", "always", "am", "amid",
+    "among", "amount", "an", "analysis", "analyst", "analysts",
+    "and", "announced", "announcement", "annual", "another", "answer",
+    "any", "anyone", "anything", "appear", "apply", "approach",
+    "approximately", "apr", "april", "are", "area", "aren",
+    "argue", "around", "arrive", "article", "as", "ask",
+    "asked", "asking", "assume", "assumptions", "at", "attack",
+    "attempt", "attention", "aug", "august", "author", "available",
     "average", "avoid", "away", "back", "bad", "bag",
     "ball", "bar", "base", "based", "basic", "be",
     "bear", "beat", "beautiful", "became", "because", "become",
@@ -147,152 +148,159 @@ STOPWORDS = frozenset(
     "commentary", "commercial", "common", "community", "companies", "company",
     "compare", "compared", "concern", "condition", "conference", "consider",
     "consumer", "contain", "continue", "control", "cookie", "corp",
-    "corporation", "cost", "could", "country", "couple", "course",
-    "court", "cover", "create", "crime", "cultural", "culture",
-    "cup", "current", "customer", "customers", "cut", "daily",
-    "dark", "daughter", "day", "dead", "deal", "death",
-    "debate", "decade", "decide", "decision", "decrease", "decreased",
-    "deep", "degree", "democratic", "describe", "design", "despite",
-    "detail", "determine", "develop", "development", "did", "die",
-    "difference", "different", "difficult", "dinner", "direction", "director",
-    "discover", "discuss", "discussion", "disease", "division", "divisions",
-    "do", "doctor", "does", "dog", "doing", "door",
-    "doubt", "down", "draw", "dream", "drive", "drop",
-    "during", "each", "early", "earning", "earnings", "east",
-    "easy", "eat", "economic", "economy", "edge", "education",
-    "effect", "effort", "eight", "either", "election", "else",
-    "employee", "end", "enjoy", "enough", "enter", "entire",
-    "environment", "especially", "establish", "even", "evening", "event",
-    "ever", "every", "everybody", "everyone", "everything", "evidence",
-    "exactly", "example", "executive", "exist", "expect", "expected",
-    "expects", "experience", "expert", "explain", "eye", "face",
-    "fact", "factor", "factors", "fail", "fall", "family",
-    "far", "fast", "father", "fear", "federal", "feel",
-    "feeling", "few", "field", "fight", "figure", "filing",
-    "filings", "fill", "final", "finally", "financial", "find",
-    "fine", "finger", "finish", "fire", "firm", "first",
-    "fiscal", "fish", "five", "floor", "fly", "focus",
-    "follow", "foot", "for", "force", "foreign", "forget",
-    "form", "former", "forward", "found", "four", "fourth",
-    "free", "friend", "from", "front", "full", "fun",
-    "function", "further", "future", "game", "garden", "general",
-    "generation", "get", "girl", "give", "given", "glass",
-    "go", "goal", "good", "got", "government", "great",
-    "green", "ground", "group", "grow", "growth", "guess",
-    "gun", "guy", "had", "hair", "half", "hand",
-    "hang", "happen", "happy", "hard", "has", "have",
-    "having", "he", "head", "hear", "heart", "heat",
-    "heavy", "help", "her", "here", "hers", "herself",
-    "high", "him", "himself", "his", "history", "hit",
-    "hold", "holding", "holdings", "home", "hope", "hospital",
-    "hot", "hotel", "hour", "house", "how", "however",
-    "huge", "human", "hundred", "husband", "i", "idea",
-    "identify", "if", "image", "imagine", "impact", "important",
-    "improve", "in", "inc", "include", "included", "including",
-    "incorporated", "increase", "increased", "increasingly", "indeed", "indicate",
-    "individual", "industries", "industry", "information", "inside", "instead",
-    "institution", "interest", "interesting", "international", "interview", "into",
-    "involve", "is", "issue", "it", "item", "items",
-    "its", "itself", "job", "join", "just", "keep",
-    "key", "kid", "kill", "kind", "kitchen", "knew",
-    "know", "knowledge", "land", "large", "last", "late",
-    "later", "laugh", "law", "lawyer", "lay", "lead",
-    "leader", "learn", "least", "leave", "led", "left",
-    "leg", "legal", "less", "let", "letter", "level",
-    "lie", "life", "light", "like", "likely", "limited",
-    "line", "list", "listen", "little", "live", "llc",
-    "local", "long", "look", "looking", "lose", "loss",
-    "lot", "love", "low", "ltd", "magazine", "main",
-    "maintain", "major", "make", "man", "manage", "management",
-    "manager", "many", "market", "markets", "marriage", "materially",
-    "matter", "may", "maybe", "me", "mean", "meanwhile",
-    "measure", "meet", "meeting", "member", "mention", "message",
-    "method", "middle", "might", "million", "mind", "minute",
-    "miss", "mission", "modern", "modestly", "moment", "money",
-    "month", "months", "more", "morning", "most", "mother",
-    "mouth", "move", "movement", "movie", "much", "must",
+    "corporation", "cost", "could", "couldn", "country", "couple",
+    "course", "court", "cover", "create", "crime", "cultural",
+    "culture", "cup", "current", "customer", "customers", "cut",
+    "daily", "daren", "dark", "daughter", "day", "dead",
+    "deal", "death", "debate", "dec", "decade", "december",
+    "decide", "decision", "decrease", "decreased", "deep", "degree",
+    "democratic", "describe", "design", "despite", "detail", "determine",
+    "develop", "development", "did", "didn", "die", "difference",
+    "different", "difficult", "dinner", "direction", "director", "discover",
+    "discuss", "discussion", "disease", "division", "divisions", "do",
+    "doctor", "does", "doesn", "dog", "doing", "don",
+    "door", "doubt", "down", "draw", "dream", "drive",
+    "drop", "during", "each", "early", "earning", "earnings",
+    "east", "easy", "eat", "economic", "economy", "edge",
+    "education", "effect", "effort", "eight", "either", "election",
+    "else", "employee", "end", "enjoy", "enough", "enter",
+    "entire", "environment", "especially", "establish", "even", "evening",
+    "event", "ever", "every", "everybody", "everyone", "everything",
+    "evidence", "exactly", "example", "executive", "exist", "expect",
+    "expected", "expects", "experience", "expert", "explain", "eye",
+    "face", "fact", "factor", "factors", "fail", "fall",
+    "family", "far", "fast", "father", "fear", "feb",
+    "february", "federal", "feel", "feeling", "few", "field",
+    "fight", "figure", "filing", "filings", "fill", "final",
+    "finally", "financial", "find", "fine", "finger", "finish",
+    "fire", "firm", "first", "fiscal", "fish", "five",
+    "floor", "fly", "focus", "follow", "foot", "for",
+    "force", "foreign", "forget", "form", "former", "forward",
+    "found", "four", "fourth", "free", "friday", "friend",
+    "from", "front", "full", "fun", "function", "further",
+    "future", "game", "garden", "general", "generation", "get",
+    "girl", "give", "given", "glass", "go", "goal",
+    "good", "got", "government", "great", "green", "ground",
+    "group", "grow", "growth", "guess", "gun", "guy",
+    "had", "hadn", "hair", "half", "hand", "hang",
+    "happen", "happy", "hard", "has", "hasn", "have",
+    "haven", "having", "he", "head", "hear", "heart",
+    "heat", "heavy", "help", "her", "here", "hers",
+    "herself", "high", "him", "himself", "his", "history",
+    "hit", "hold", "holding", "holdings", "home", "hope",
+    "hospital", "hot", "hotel", "hour", "house", "how",
+    "however", "huge", "human", "hundred", "husband", "i",
+    "idea", "identify", "if", "image", "imagine", "impact",
+    "important", "improve", "in", "inc", "include", "included",
+    "including", "incorporated", "increase", "increased", "increasingly", "indeed",
+    "indicate", "individual", "industries", "industry", "information", "inside",
+    "instead", "institution", "interest", "interesting", "international", "interview",
+    "into", "involve", "is", "isn", "issue", "it",
+    "item", "items", "its", "itself", "jan", "january",
+    "job", "join", "jul", "july", "jun", "june",
+    "just", "keep", "key", "kid", "kill", "kind",
+    "kitchen", "knew", "know", "knowledge", "land", "large",
+    "last", "late", "later", "laugh", "law", "lawyer",
+    "lay", "lead", "leader", "learn", "least", "leave",
+    "led", "left", "leg", "legal", "less", "let",
+    "letter", "level", "lie", "life", "light", "like",
+    "likely", "limited", "line", "list", "listen", "little",
+    "live", "llc", "local", "long", "look", "looking",
+    "lose", "loss", "lot", "love", "low", "ltd",
+    "magazine", "main", "maintain", "major", "make", "man",
+    "manage", "management", "manager", "many", "mar", "march",
+    "market", "markets", "marriage", "materially", "matter", "may",
+    "maybe", "me", "mean", "meanwhile", "measure", "meet",
+    "meeting", "member", "mention", "message", "method", "middle",
+    "might", "million", "mind", "minute", "miss", "mission",
+    "modern", "modestly", "moment", "monday", "money", "month",
+    "months", "more", "morning", "most", "mother", "mouth",
+    "move", "movement", "movie", "much", "must", "mustn",
     "my", "myself", "name", "nation", "national", "natural",
-    "nature", "near", "nearly", "necessary", "need", "never",
-    "new", "news", "newspaper", "next", "nice", "night",
-    "no", "none", "nor", "north", "not", "note",
-    "notes", "nothing", "notice", "now", "number", "occur",
-    "of", "off", "offer", "office", "officer", "official",
-    "often", "oh", "ok", "old", "on", "once",
-    "one", "only", "onto", "open", "operating", "operation",
-    "operations", "opportunity", "option", "or", "order", "organization",
-    "other", "others", "our", "out", "outside", "over",
-    "own", "owner", "page", "pain", "painting", "paper",
-    "parent", "part", "participant", "participants", "particular", "particularly",
-    "partner", "party", "pass", "past", "patient", "pattern",
-    "pay", "peace", "people", "per", "percent", "percentage",
-    "perform", "perhaps", "period", "periods", "person", "personal",
-    "physical", "pick", "picture", "piece", "place", "plan",
-    "plant", "play", "player", "plc", "please", "point",
-    "police", "policy", "political", "politics", "poor", "popular",
-    "population", "position", "positive", "possible", "power", "practice",
-    "prepare", "present", "president", "pressure", "pretty", "prevent",
-    "price", "prices", "prior", "private", "probably", "problem",
-    "process", "produce", "product", "products", "professional", "professor",
-    "program", "project", "property", "protect", "prove", "provide",
-    "public", "pull", "purpose", "push", "put", "quality",
-    "quarter", "quarterly", "question", "quickly", "quite", "race",
-    "raise", "range", "rate", "rather", "reach", "read",
-    "ready", "real", "reality", "realize", "really", "reason",
-    "receive", "recent", "recently", "recognize", "record", "red",
-    "reduce", "reflect", "region", "relate", "relationship", "release",
-    "religious", "remain", "remember", "remove", "report", "reported",
-    "reporting", "reports", "represent", "reprint", "republican", "require",
-    "research", "reserved", "resource", "respond", "respondent", "respondents",
-    "response", "responsibility", "rest", "result", "results", "return",
-    "reveal", "revenue", "revenues", "rich", "right", "rise",
-    "risk", "risks", "road", "rock", "role", "room",
-    "roughly", "rule", "run", "safe", "said", "sales",
-    "same", "save", "say", "says", "scene", "school",
+    "nature", "near", "nearly", "necessary", "need", "needn",
+    "never", "new", "news", "newspaper", "next", "nice",
+    "night", "no", "none", "nor", "north", "not",
+    "note", "notes", "nothing", "notice", "nov", "november",
+    "now", "number", "occur", "oct", "october", "of",
+    "off", "offer", "office", "officer", "official", "often",
+    "oh", "ok", "old", "on", "once", "one",
+    "only", "onto", "open", "operating", "operation", "operations",
+    "opportunity", "option", "or", "order", "organization", "other",
+    "others", "our", "out", "outside", "over", "own",
+    "owner", "page", "pain", "painting", "paper", "parent",
+    "part", "participant", "participants", "particular", "particularly", "partner",
+    "party", "pass", "past", "patient", "pattern", "pay",
+    "peace", "people", "per", "percent", "percentage", "perform",
+    "perhaps", "period", "periods", "person", "personal", "physical",
+    "pick", "picture", "piece", "place", "plan", "plant",
+    "play", "player", "plc", "please", "point", "police",
+    "policy", "political", "politics", "poor", "popular", "population",
+    "position", "positive", "possible", "power", "practice", "prepare",
+    "present", "president", "pressure", "pretty", "prevent", "price",
+    "prices", "prior", "private", "probably", "problem", "process",
+    "produce", "product", "products", "professional", "professor", "program",
+    "project", "property", "protect", "prove", "provide", "public",
+    "pull", "purpose", "push", "put", "quality", "quarter",
+    "quarterly", "question", "quickly", "quite", "race", "raise",
+    "range", "rate", "rather", "reach", "read", "ready",
+    "real", "reality", "realize", "really", "reason", "receive",
+    "recent", "recently", "recognize", "record", "red", "reduce",
+    "reflect", "region", "relate", "relationship", "release", "religious",
+    "remain", "remember", "remove", "report", "reported", "reporting",
+    "reports", "represent", "reprint", "republican", "require", "research",
+    "reserved", "resource", "respond", "respondent", "respondents", "response",
+    "responsibility", "rest", "result", "results", "return", "reveal",
+    "revenue", "revenues", "rich", "right", "rise", "risk",
+    "risks", "road", "rock", "role", "room", "roughly",
+    "rule", "run", "safe", "said", "sales", "same",
+    "saturday", "save", "say", "says", "scene", "school",
     "score", "sea", "season", "seat", "second", "section",
     "see", "seek", "seem", "segment", "segments", "sell",
-    "send", "senior", "sense", "series", "serious", "serve",
-    "service", "services", "set", "seven", "several", "sex",
-    "sexual", "shake", "share", "shares", "she", "shoot",
-    "short", "shot", "should", "shoulder", "show", "side",
-    "sign", "significant", "similar", "simple", "simply", "since",
-    "sing", "single", "sister", "sit", "site", "situation",
-    "six", "size", "skill", "skin", "small", "smile",
-    "so", "social", "society", "soldier", "some", "somebody",
-    "someone", "something", "sometimes", "son", "song", "soon",
-    "sort", "sound", "source", "south", "speak", "special",
-    "specific", "speech", "spend", "spring", "staff", "stage",
-    "stand", "standard", "star", "start", "state", "statement",
-    "statements", "station", "stay", "step", "still", "stock",
-    "stop", "store", "story", "strategy", "street", "strong",
-    "structure", "student", "study", "stuff", "style", "subject",
-    "success", "successful", "such", "suddenly", "suffer", "suggest",
-    "summer", "support", "sure", "surface", "survey", "surveyed",
+    "send", "senior", "sense", "sep", "sept", "september",
+    "series", "serious", "serve", "service", "services", "set",
+    "seven", "several", "sex", "sexual", "shake", "shan",
+    "share", "shares", "she", "shoot", "short", "shot",
+    "should", "shoulder", "shouldn", "show", "side", "sign",
+    "significant", "similar", "simple", "simply", "since", "sing",
+    "single", "sister", "sit", "site", "situation", "six",
+    "size", "skill", "skin", "small", "smile", "so",
+    "social", "society", "soldier", "some", "somebody", "someone",
+    "something", "sometimes", "son", "song", "soon", "sort",
+    "sound", "source", "south", "speak", "special", "specific",
+    "speech", "spend", "spring", "staff", "stage", "stand",
+    "standard", "star", "start", "state", "statement", "statements",
+    "station", "stay", "step", "still", "stock", "stop",
+    "store", "story", "strategy", "street", "strong", "structure",
+    "student", "study", "stuff", "style", "subject", "success",
+    "successful", "such", "suddenly", "suffer", "suggest", "summer",
+    "sunday", "support", "sure", "surface", "survey", "surveyed",
     "system", "table", "take", "talk", "task", "tax",
     "teach", "teacher", "team", "tell", "ten", "tend",
     "term", "test", "than", "thank", "that", "the",
     "their", "them", "themselves", "then", "theory", "there",
     "these", "they", "thing", "think", "third", "this",
     "those", "though", "thought", "thousand", "threat", "three",
-    "through", "throughout", "throw", "thus", "time", "to",
-    "today", "together", "tonight", "too", "top", "total",
-    "tough", "toward", "towards", "town", "traditional", "training",
-    "transcript", "transcripts", "travel", "treat", "treatment", "tree",
-    "trial", "trip", "trouble", "true", "truth", "try",
-    "turn", "tv", "two", "type", "uncertainties", "under",
-    "understand", "unit", "until", "up", "upon", "us",
-    "use", "usually", "value", "various", "versus", "very",
-    "via", "victim", "view", "violence", "visit", "voice",
-    "vote", "wait", "walk", "wall", "want", "war",
-    "was", "watch", "way", "we", "weapon", "wear",
-    "week", "weeks", "weight", "well", "were", "west",
-    "western", "what", "whatever", "when", "where", "whether",
-    "which", "while", "white", "who", "whole", "whom",
-    "whose", "why", "wide", "wife", "will", "win",
-    "wind", "window", "wish", "with", "within", "without",
-    "woman", "wonder", "word", "work", "worker", "world",
-    "worry", "worth", "would", "write", "writer", "wrong",
-    "yard", "yeah", "year", "years", "yes", "yet",
-    "you", "young", "your", "yourself",
+    "through", "throughout", "throw", "thursday", "thus", "time",
+    "to", "today", "together", "tonight", "too", "top",
+    "total", "tough", "toward", "towards", "town", "traditional",
+    "training", "transcript", "transcripts", "travel", "treat", "treatment",
+    "tree", "trial", "trip", "trouble", "true", "truth",
+    "try", "tuesday", "turn", "tv", "two", "type",
+    "uncertainties", "under", "understand", "unit", "until", "up",
+    "upon", "us", "use", "usually", "value", "various",
+    "versus", "very", "via", "victim", "view", "violence",
+    "visit", "voice", "vote", "wait", "walk", "wall",
+    "want", "war", "was", "wasn", "watch", "way",
+    "we", "weapon", "wear", "wednesday", "week", "weeks",
+    "weight", "well", "were", "weren", "west", "western",
+    "what", "whatever", "when", "where", "whether", "which",
+    "while", "white", "who", "whole", "whom", "whose",
+    "why", "wide", "wife", "will", "win", "wind",
+    "window", "wish", "with", "within", "without", "woman",
+    "won", "wonder", "word", "work", "worker", "world",
+    "worry", "worth", "would", "wouldn", "write", "writer",
+    "wrong", "yard", "yeah", "year", "years", "yes",
+    "yet", "you", "young", "your", "yourself",
     ]
 )
 
@@ -335,9 +343,20 @@ def _predicate_vocabulary() -> frozenset[str]:
 #: Change-words, from the extraction rules. Computed once at import.
 PREDICATE_WORDS = _predicate_vocabulary()
 
-#: A single past-tense token is a verb, not a topic: "declined", "extended", "reported".
-#: Only ``-ed`` — ``-ing`` words are frequently nouns ("manufacturing", "shipping").
-_PAST_TENSE = re.compile(r"^[a-z]{4,}ed$")
+#: A single token in a verb form is an action, not a topic: "declined", "getting",
+#: "managing", "supporting". Extended to ``-ing`` after a live run returned eight of them;
+#: it applies only to ONE-WORD terms, so "manufacturing capacity" is untouched while bare
+#: "manufacturing" is refused.
+
+
+#: Stopwords are stored in their NORMALISED form as well as their literal one. Candidates
+#: are normalised before filtering, and the plural fold is imperfect — "cookies" becomes
+#: "cooky", which was not on the list even though "cookie" was, so the word walked past the
+#: filter that named it. Folding the list through the same function closes that gap for
+#: every word at once rather than one surprise at a time.
+#: A single token in these forms describes an action or a date, not a topic. Applied only to
+#: one-word terms: "manufacturing capacity" is a subject, bare "manufacturing" is not.
+_VERB_FORM = re.compile(r"^[a-z]{4,}(?:ed|ing)$")
 
 
 #: Tokens must be word-like: letters, optionally with internal digits or hyphens ("5g",
@@ -418,6 +437,22 @@ def normalise_term(term: str) -> str:
     return " ".join(words)
 
 
+#: Every stopword, plus whatever the plural fold turns its PLURAL into.
+#:
+#: Folding the singular is not enough, because the leak runs the other way: "cookie" folds
+#: to itself, while the candidate "cookies" folds to "cooky" — a form that was on no list at
+#: all, so a word the filter explicitly named walked straight past it. English forms both
+#: "companies" and "cookies" from an "-ies" ending and only the first unfolds to "-y", which
+#: no rule short of a dictionary distinguishes. Generating the mangled forms sidesteps the
+#: ambiguity entirely rather than pretending the fold is exact.
+STOPWORDS = frozenset(
+    STOPWORDS
+    | {normalise_term(word) for word in STOPWORDS}
+    | {normalise_term(word + "s") for word in STOPWORDS}
+    | {normalise_term(word + "es") for word in STOPWORDS}
+)
+
+
 def subject_key_for(term: str) -> str:
     """Stable identifier for a subject: ``high bandwidth memory`` -> ``high_bandwidth_memory``."""
     return re.sub(r"[^a-z0-9]+", "_", normalise_term(term)).strip("_")
@@ -448,6 +483,11 @@ def candidate_terms(text: str) -> set[str]:
                     continue
                 if gram[0] in PREDICATE_WORDS or gram[-1] in PREDICATE_WORDS:
                     continue
+                # A verb form at either edge makes the phrase an action, not a topic:
+                # "getting and managing" is not a subject. Interior ones are fine, so
+                # "advanced packaging" survives.
+                if _VERB_FORM.match(gram[0]) or _VERB_FORM.match(gram[-1]):
+                    continue
                 if any(len(token) < 2 for token in gram):
                     continue
                 term = " ".join(gram)
@@ -457,7 +497,7 @@ def candidate_terms(text: str) -> set[str]:
                 # event, not a subject. Multi-word phrases are allowed to contain one
                 # ("memory pricing" is a real topic) provided they are not made only of them.
                 if len(gram) == 1 and (
-                    gram[0] in PREDICATE_WORDS or _PAST_TENSE.match(gram[0])
+                    gram[0] in PREDICATE_WORDS or _VERB_FORM.match(gram[0])
                 ):
                     continue
                 if all(
@@ -558,6 +598,18 @@ def strip_boilerplate(text: str, boilerplate: frozenset[str]) -> str:
         if " ".join(raw.lower().split()) not in boilerplate:
             kept.append(raw)
     return ". ".join(kept)
+
+
+def _mentions_excluded(term: str, excluded: frozenset[str]) -> bool:
+    """True when a term IS, or CONTAINS, an excluded company or publisher name.
+
+    Equality alone was not enough: "cnbc" was excluded and "told cnbc" was not, so the
+    publisher walked back in wearing a verb. A subject that names a company or a publisher
+    is about that organisation, and organisations are entities, not topics.
+    """
+    if term in excluded:
+        return True
+    return any(token in excluded for token in term.split())
 
 
 def _is_publisher_furniture(
@@ -675,7 +727,7 @@ def discover_subjects(
         # A company name is an ENTITY, not a subject: "Northbridge Memory Corp" is who the
         # news is about, and entity resolution already maps it to an issuer. Admitting it
         # here would double-model it and let one company's coverage look like a theme.
-        if term in excluded:
+        if _mentions_excluded(term, excluded):
             continue
         document_ratio = len(documents[term]) / total_documents
         if total_documents >= MIN_DOCUMENTS_FOR_RATIO and document_ratio > MAX_DOCUMENT_RATIO:
