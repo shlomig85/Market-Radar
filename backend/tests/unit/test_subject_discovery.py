@@ -409,3 +409,35 @@ def test_a_short_repeated_sentence_is_not_treated_as_boilerplate() -> None:
         for index in range(8)
     ]
     assert repeated_sentences(corpus) == frozenset()
+
+
+def test_common_english_words_are_never_subjects() -> None:
+    """A live run returned "expert", "strong", "leader", "concern", "worth", "asked",
+    "meanwhile" and "increasingly" as discovered subjects.
+
+    A hand-picked list of 262 words was being extended one live run at a time, which does
+    not converge. Word frequency is linguistic knowledge, not domain knowledge, so using a
+    real common-English list does not reintroduce the hardcoded-vocabulary problem.
+    """
+    text = (
+        "Experts feel growing concern. A strong leader asked whether it is worth it. "
+        "Meanwhile the traditional approach is increasingly becoming an issue."
+    )
+    found = candidate_terms(text)
+    for word in (
+        "expert", "strong", "leader", "concern", "worth", "asked", "meanwhile",
+        "increasingly", "traditional", "becoming", "issue", "approach",
+    ):
+        assert word not in found, word
+
+
+def test_a_domain_noun_survives_inside_a_phrase() -> None:
+    """The subtraction that makes the common-word list safe.
+
+    A term is rejected when it begins or ends with a stopword, so a common word that is
+    also a plausible subject — memory, energy, storage, data — must stay OUT of the list or
+    it takes the phrase down with it.
+    """
+    assert "high-bandwidth memory" in candidate_terms("High-bandwidth memory demand rose.")
+    assert "grid energy storage" in candidate_terms("Grid energy storage expanded sharply.")
+    assert "data centre" in candidate_terms("Data centre construction accelerated.")

@@ -272,3 +272,20 @@ def test_a_subject_still_referenced_by_evidence_survives(
 
     refresh_subjects(session, as_of=AS_OF)
     assert session.scalar(select(Subject).where(Subject.key == "niche_topic")) is not None
+
+
+def test_a_publisher_name_never_becomes_a_subject(session: Session, corpus: None) -> None:
+    """A publisher is where topics are reported from, not a topic.
+
+    A live run returned "cnbc", "cond nast" and "technica addendum" as subjects. Companies
+    were already excluded this way; publishers were not, purely because I did not think of
+    them.
+    """
+    from marketradar.ingestion.subjects import publisher_ngrams
+
+    excluded = publisher_ngrams(session)
+    assert "wire" in excluded, excluded
+
+    refresh_subjects(session, as_of=AS_OF)
+    keys = {key for (key,) in session.execute(select(Subject.key)).all()}
+    assert "wire" not in keys

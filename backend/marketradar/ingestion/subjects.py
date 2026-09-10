@@ -14,7 +14,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from marketradar.domain.enums import DataMode
-from marketradar.domain.models import Company, EvidenceItem, SourceDocument, Subject
+from marketradar.domain.models import (
+    Company,
+    EvidenceItem,
+    Source,
+    SourceDocument,
+    Subject,
+)
 from marketradar.entities.resolver import suffix_chain
 from marketradar.evidence.extractor import SUBJECT_LEXICON
 from marketradar.logging import get_logger
@@ -91,6 +97,29 @@ def company_ngrams(session: Session) -> frozenset[str]:
     return frozenset(phrases)
 
 
+def publisher_ngrams(session: Session) -> frozenset[str]:
+    """Every phrase inside a subscribed publisher's own name.
+
+    A live run returned "cnbc", "cond nast" and "technica addendum" as discovered subjects.
+    A publisher is not a topic — it is where topics are reported from — and its name recurs
+    in its own pages by construction. Companies were already excluded this way; publishers
+    were not, purely because I did not think of them.
+
+    Derived from the Source rows, so subscribing to a new feed excludes that publisher's
+    name automatically.
+    """
+    phrases: set[str] = set()
+    for source in session.scalars(select(Source)).all():
+        for label in (source.name, source.publisher, source.key.replace("-", " ")):
+            tokens = normalise_term(label).split()
+            for size in range(1, min(len(tokens), MAX_NGRAM) + 1):
+                for index in range(len(tokens) - size + 1):
+                    phrase = " ".join(tokens[index : index + size])
+                    if len(phrase) >= 3:
+                        phrases.add(phrase)
+    return frozenset(phrases)
+
+
 def refresh_subjects(
     session: Session,
     as_of: datetime,
@@ -110,7 +139,7 @@ def refresh_subjects(
     # Company names are entities, resolved elsewhere; they must not also become subjects.
     # Every surface form the resolver knows is excluded, including the shortened ones, so
     # "Northbridge" is refused as well as "Northbridge Memory Corp".
-    excluded = company_ngrams(session)
+    excluded = company_ngrams(session) | publisher_ngrams(session)
 
     candidates = discover_subjects(
         [
@@ -255,6 +284,7 @@ def subjects_with_evidence(session: Session) -> set[str]:
 __all__ = [
     "SubjectReport",
     "company_ngrams",
+    "publisher_ngrams",
     "active_subject_keys",
     "refresh_subjects",
     "seed_lexicon_subjects",

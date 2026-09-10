@@ -523,3 +523,40 @@ document. They were correctly identified as boilerplate — which is the cleares
 does what it claims, and a reminder that synthetic corpora are unrealistically uniform in exactly
 the way that matters here.
 
+---
+
+## ADR-022 — Noise is excluded by category, never by adding words one run at a time
+
+**Decision.** Three category-level exclusions replace reactive word-adding:
+
+* **Common English** — roughly the thousand most frequent English words, *minus* those that
+  are also plausible investment subjects (memory, energy, storage, data, battery, …).
+* **Publisher names** — derived from the `Source` rows, exactly as company names already were.
+* **Normalisation before filtering** — tokens are folded to their comparison form *before* the
+  stopword test, not after.
+
+**Alternatives.** (a) Keep extending the hand-picked list after each live run. (b) A part-of-speech
+tagger to keep only noun phrases. (c) An LLM to judge whether a term is a topic.
+
+**Why.** (a) is what was happening, and it does not converge: each run returned a fresh batch of
+ordinary English — "expert", "strong", "leader", "concern", "worth", "asked", "meanwhile",
+"increasingly" — and each fix covered only the words that run happened to surface. Word frequency is
+**linguistic** knowledge, not domain knowledge: a common-English list names no industry, technology
+or product, so it does not reintroduce the hardcoded-vocabulary problem (C6) that discovery exists
+to remove. (b) is a dependency and a model to keep current for a job three category rules do. (c)
+cannot be audited and costs money per run.
+
+The subtraction is the part that matters. A term is rejected when it *begins or ends* with a
+stopword, so leaving "memory" in the common list would reject "high-bandwidth memory" — the flagship
+subject — and leaving "energy" in would reject "grid energy storage".
+
+Normalising before filtering fixed a bug that had been silently defeating every filter above it:
+"expert" was a stopword, "experts" was not, and the term became "expert" anyway. Every plural in
+English was walking through the entire chain.
+
+**Cost.** The common-word list and the domain-plausible subtraction are both judgement calls, and
+the subtraction in particular is the one place domain knowledge re-enters — a word wrongly left in
+silently costs a real subject. Both are single constants at the top of the module rather than
+conditions buried in the logic, so the judgement is inspectable. A publisher whose name is also a
+genuine topic would be excluded outright; none of the current sources has that problem.
+
