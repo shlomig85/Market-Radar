@@ -88,6 +88,13 @@ class Settings(BaseSettings):
         ),
     )
 
+    #: Terms the operator never wants to see as a discovered subject. The rules cover
+    #: categories — common English, verb forms, dates, publisher and company names — but
+    #: cannot know that "Condé Nast" is Ars Technica's parent, or that some phrase is
+    #: furniture on a site only this operator subscribes to. A term is excluded if it
+    #: matches or CONTAINS any entry.
+    subject_exclusions: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
     news_api_key: str = ""
     market_data_api_key: str = ""
 
@@ -109,7 +116,14 @@ class Settings(BaseSettings):
     baseline_window_days: int = 90
     duplicate_similarity_threshold: float = 0.60
 
-    @field_validator("cors_origins", "http_allowed_hosts", "sec_ciks", "feeds", mode="before")
+    @field_validator(
+        "cors_origins",
+        "http_allowed_hosts",
+        "sec_ciks",
+        "feeds",
+        "subject_exclusions",
+        mode="before",
+    )
     @classmethod
     def _parse_list(cls, value: object) -> object:
         """Accept a comma-separated string or a JSON array.

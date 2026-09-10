@@ -13,6 +13,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from marketradar.config import get_settings
 from marketradar.domain.enums import DataMode
 from marketradar.domain.models import (
     Company,
@@ -139,7 +140,12 @@ def refresh_subjects(
     # Company names are entities, resolved elsewhere; they must not also become subjects.
     # Every surface form the resolver knows is excluded, including the shortened ones, so
     # "Northbridge" is refused as well as "Northbridge Memory Corp".
-    excluded = company_ngrams(session) | publisher_ngrams(session)
+    settings = get_settings()
+    # Rules cover categories; this covers the specifics only the operator knows.
+    operator_terms = frozenset(
+        normalise_term(term) for term in settings.subject_exclusions if term.strip()
+    )
+    excluded = company_ngrams(session) | publisher_ngrams(session) | operator_terms
 
     candidates = discover_subjects(
         [

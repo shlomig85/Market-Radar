@@ -289,3 +289,23 @@ def test_a_publisher_name_never_becomes_a_subject(session: Session, corpus: None
     refresh_subjects(session, as_of=AS_OF)
     keys = {key for (key,) in session.execute(select(Subject.key)).all()}
     assert "wire" not in keys
+
+
+def test_the_operator_can_exclude_terms_no_rule_could_know(
+    session: Session, corpus: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rules cover categories; some exclusions are local knowledge.
+
+    Nothing derivable tells the system that "Condé Nast" is Ars Technica's parent, or that
+    a phrase is furniture on a site only this operator subscribes to.
+    """
+    from marketradar.config import Settings, get_settings
+
+    monkeypatch.setattr(
+        "marketradar.ingestion.subjects.get_settings",
+        lambda: Settings(subject_exclusions=["grid storage"]),
+    )
+    refresh_subjects(session, as_of=AS_OF)
+    keys = {key for (key,) in session.execute(select(Subject.key)).all()}
+    assert "grid_storage" not in keys
+    get_settings.cache_clear() if hasattr(get_settings, "cache_clear") else None

@@ -483,3 +483,21 @@ def test_a_term_containing_a_publisher_name_is_excluded() -> None:
     assert _mentions_excluded("told cnbc", excluded)
     assert _mentions_excluded("cond nast", excluded)
     assert not _mentions_excluded("grid storage", excluded)
+
+
+def test_comparatives_are_not_subjects() -> None:
+    """"faster", "wider", "larger", "broader" describe a change; EventType models that.
+
+    Not derived from an "-er" rule: "manufacturer", "detector" and "supplier" end in -er
+    and are perfectly good nouns.
+    """
+    for word in ("faster", "wider", "larger", "broader", "higher", "lower", "better"):
+        assert word in STOPWORDS, word
+    assert "manufacturer" not in STOPWORDS
+    assert "detector" not in STOPWORDS
+
+
+def test_irregular_past_forms_are_not_subjects() -> None:
+    """No suffix rule reaches these — "seen", "told", "wrote" end in neither -ed nor -ing."""
+    for word in ("seen", "told", "wrote", "gone", "taken", "went", "came"):
+        assert word in STOPWORDS, word
