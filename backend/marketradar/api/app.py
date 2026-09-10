@@ -122,14 +122,21 @@ def create_app() -> FastAPI:
     def trending(
         limit: int = 25,
         include_headwinds: bool = True,
+        include_fictional: bool = False,
         session: Session = Depends(get_session),
     ) -> list[TrendingCompanyOut]:
         """Companies ranked 0-10 on how strongly they are caught up in something changing.
 
-        Every row carries its own decomposition, so the list can be taken apart into the
-        reasons for it rather than read as an oracle.
+        Every row carries the articles behind it and its own score decomposition, so the
+        list can be taken apart into the reasons for it rather than read as an oracle.
+        Fictional issuers from the synthetic corpus are excluded unless asked for.
         """
-        return services.list_trending(session, limit=limit, include_headwinds=include_headwinds)
+        return services.list_trending(
+            session,
+            limit=limit,
+            include_headwinds=include_headwinds,
+            include_fictional=include_fictional,
+        )
 
     @app.get("/subjects", response_model=list[SubjectOut], tags=["trending"])
     def subjects(

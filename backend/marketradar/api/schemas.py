@@ -84,6 +84,26 @@ class ExposureOut(BaseModel):
     data_mode: str
 
 
+class HeadlineOut(BaseModel):
+    """One article behind a company's rating.
+
+    This is the part a reader actually wants: not a score, but the story that produced it,
+    with the publisher and the date so they can judge it themselves and the URL so they can
+    read it. ``about_company`` is false when no article named this company directly and the
+    headline is the theme's rather than the company's — the difference matters and is not
+    smoothed over.
+    """
+
+    title: str
+    url: str
+    publisher: str
+    source_class: str
+    published_at: datetime
+    claim: str
+    about_company: bool
+    is_synthetic: bool
+
+
 class TrendingCompanyOut(BaseModel):
     """One row of the ranked trending list.
 
@@ -111,6 +131,21 @@ class TrendingCompanyOut(BaseModel):
     weight_coverage: float
     unavailable_components: list[str]
     components: list[ScoreComponentOut]
+    #: True when the issuer is invented. The DEMO corpus exists so the pipeline can be
+    #: exercised without a network; a fictional issuer must never sit in a list a reader
+    #: might act on, so this travels with every row rather than being inferred from the mode.
+    is_fictional: bool
+    #: Plain-language summary of why this company is on the list, in one sentence.
+    headline_reason: str
+    #: The articles that put it there, most recent first.
+    headlines: list[HeadlineOut]
+    #: Distinct publishers behind those articles. One outlet saying something is not news.
+    publisher_count: int
+    #: Independent ancestry clusters among THIS COMPANY's own evidence. Distinct from
+    #: ``independent_clusters``, which counts the theme's: a company can sit inside a
+    #: heavily corroborated theme on the strength of one article about itself, and
+    #: conflating the two would present the theme's corroboration as the company's.
+    independent_reports: int
 
 
 class SubjectOut(BaseModel):

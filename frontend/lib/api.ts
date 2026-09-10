@@ -84,6 +84,17 @@ export interface Exposure {
   data_mode: DataMode;
 }
 
+export interface Headline {
+  title: string;
+  url: string;
+  publisher: string;
+  source_class: string;
+  published_at: string;
+  claim: string;
+  about_company: boolean;
+  is_synthetic: boolean;
+}
+
 export interface TrendingCompany {
   rank: number;
   company_key: string;
@@ -104,6 +115,11 @@ export interface TrendingCompany {
   weight_coverage: number;
   unavailable_components: string[];
   components: ScoreComponent[];
+  is_fictional: boolean;
+  headline_reason: string;
+  headlines: Headline[];
+  publisher_count: number;
+  independent_reports: number;
 }
 
 export interface Subject {
@@ -289,7 +305,10 @@ async function get<T>(path: string): Promise<T | null> {
 
 export const api = {
   providers: () => get<ProviderHealth[]>("/providers"),
-  trending: (limit = 25) => get<TrendingCompany[]>(`/trending?limit=${limit}`),
+  trending: (limit = 25, includeFictional = false) =>
+    get<TrendingCompany[]>(
+      `/trending?limit=${limit}&include_fictional=${includeFictional}`,
+    ),
   subjects: (limit = 40) => get<Subject[]>(`/subjects?limit=${limit}`),
   themes: () => get<ThemeSummary[]>("/themes"),
   theme: (slug: string) => get<ThemeDetail>(`/themes/${slug}`),

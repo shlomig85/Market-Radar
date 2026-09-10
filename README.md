@@ -183,13 +183,25 @@ An edge that was seeded by hand rather than read out of a document prints
 
 ### Running against real sources
 
-Nothing above needs a network: with no providers configured the pipeline runs on the
-synthetic corpus and stamps every figure `DEMO`. Real sources are opt-in, free, and
-key-less — the full list and the reliability argument behind it is in
-[`docs/data-sources.md`](docs/data-sources.md).
+**The real sources are the default** (ADR-025). What they are NOT is anonymous: publishers
+block unidentified scrapers and the SEC requires a contact address under its fair-access
+policy, so both refuse to fetch rather than send an anonymous request. Until you put a
+contact string in `.env`, the news capability reports `UNAVAILABLE` and the trending page is
+empty and says which two variables to set.
 
-The SEC asks for a descriptive `User-Agent` with a contact address, and the feed fetcher
-sends one for the same reason. Both are refused rather than sent anonymously, so set them:
+```bash
+MARKETRADAR_FEED_USER_AGENT=Market Radar you@example.com
+MARKETRADAR_SEC_USER_AGENT=Market Radar you@example.com
+```
+
+**If you copied `.env` before this change it still says `fixture`** — editing the example
+does not reach a file you already have. Set `MARKETRADAR_NEWS_PROVIDER=feeds`,
+`MARKETRADAR_FILINGS_PROVIDER=sec_edgar` and `MARKETRADAR_COMPANY_PROVIDER=sec` in your own
+`.env`, or delete it and copy the example again.
+
+The full source list and the reliability argument behind it is in
+[`docs/data-sources.md`](docs/data-sources.md). To run one command against real sources
+without touching `.env`:
 
 ```bash
 docker compose --profile cli run --rm \
@@ -204,11 +216,12 @@ docker compose --profile cli run --rm \
 Put the same five variables in `.env` to make them the default for the whole stack, API and
 web included.
 
-Two things to expect on the first real run. **Ratings can still say `DEMO`** if the synthetic
-corpus is in the same database — data mode propagates weakest-wins, which is the correct
-behaviour and not a bug; `make reset` before a run that should be purely live. And
-**a feed or two will fail** — they move, rot, and return 403 to unfamiliar clients. `make
-feeds` says which, and a failed feed is simply absent rather than compensated for.
+Two things to expect on the first real run. **Invented companies never appear** in the
+trending list (ADR-026): if the synthetic corpus is also in the database its issuers are
+filtered out rather than badged, so a list that looks short may simply be excluding them —
+`make reset` clears it. And **a feed or two will fail**: they move, rot, and return 403 to
+unfamiliar clients. `make feeds` says which, and a failed feed is simply absent rather than
+compensated for.
 
 `MARKETRADAR_SUBJECT_EXCLUSIONS` takes a comma-separated list of terms that should never
 become subjects. Discovery removes site furniture by detecting sentences a publisher repeats
@@ -235,7 +248,7 @@ verbatim, which catches most of it; this is the operator's veto for the rest.
 ## Testing
 
 ```bash
-make test              # 341 tests
+make test              # 347 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -276,7 +289,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 24 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 27 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/data-sources.md` | every free public source read, and why it can be trusted |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |

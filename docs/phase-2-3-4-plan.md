@@ -503,3 +503,59 @@ Unchanged from §14: ratings read `DEMO` while the synthetic corpus shares the d
 the live one. `make reset` before a live run is the workaround; the README now says so under
 *Running against real sources*. Nothing is mislabelled — weakest-wins is doing exactly what
 it should — but a purely live run has not yet been observed end to end.
+
+---
+
+## 16. "I don't see any value" (2026-09-10)
+
+The operator's verdict on the screen shipped in §15, verbatim: *"i don't understand anything
+from what I see on the UI. i simply need to see the coolest stocks to invest in... read the
+latest news, latest blogs and so on... i dont see any value now."*
+
+That is a correct verdict, and three separate mistakes produced it.
+
+**The default was the fake corpus.** `news_provider` defaulted to `fixture`, so a first run
+ranked invented companies — Northbridge Memory Corp, ticker NBMX. There is no value in a
+ranked list of things that do not exist, and the `DEMO` badge does not fix it: a reader
+scanning for stocks reads tickers, not provenance chrome. Defaults are now the real providers
+(ADR-025) and fictional issuers are excluded from the ranked list outright (ADR-026).
+
+**The page never showed a headline.** The product ingests sixteen publishers, extracts claims
+from articles, and clusters them by ancestry — and the UI displayed none of it. It showed
+`Independent corroboration 75/100 × 16% weight = 11.8 pts`. The reader asked for news and
+blogs; they got the arithmetic performed on news and blogs. Each row now leads with the
+articles behind it — title, publisher, how long ago, link — and the arithmetic is one
+collapsed line.
+
+**The language was internal.** "Direct Beneficiary of 'AI Memory Demand' at order 1" and
+"AI Memory Demand is accelerating, and this company is at the centre of it" are the same
+fact; only the second is a reason to keep reading.
+
+### The mistake inside the fix
+
+The plain-language sentence originally read "5 publishers have reported on it". It was built
+from the publisher count, which is precisely the number this system exists not to trust — five
+outlets running one wire story is one source. Worse, the first correction reached for
+`rating.independent_clusters`, which counts the *theme's* corroboration, not the company's: it
+can exceed the company's own publisher count, and a company known from a single article was
+described as corroborated by seven sources.
+
+Both are now separate fields, and the sentence states the relationship rather than picking a
+side: *"2 sources reported it independently of each other, across 5 publishers — the rest are
+running the same story."* That sentence is the most valuable thing on the page. It is the one
+claim a news feed cannot make.
+
+### The other thing this broke
+
+Flipping the provider defaults made the test suite reach for the network — `create_app()`
+builds its registry from process-wide settings, so `/providers` in an API test tried to fetch
+sixteen live feeds and the suite hung. Providers are now pinned to the synthetic corpus in
+`conftest` at the environment level, before any `Settings` is constructed. A suite whose
+result depends on whether a publisher answered today is not a test.
+
+### Not verified here
+
+This container's egress policy denies all sixteen feed hosts and `sec.gov` (403 on CONNECT),
+so the live path could not be exercised in this session — the layout above was checked against
+the synthetic corpus via `?demo=1`. The live run has to happen on the operator's machine,
+where 11-14 of the 16 feeds answered previously.

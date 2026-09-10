@@ -49,10 +49,17 @@ class Settings(BaseSettings):
     # --- providers -------------------------------------------------------
     # A provider with no credentials configured resolves to UNAVAILABLE. It is never
     # silently replaced with fabricated data.
-    news_provider: str = "fixture"
-    filings_provider: str = "fixture"
+    #
+    # The defaults are the REAL sources. They were "fixture" for most of this project's
+    # life, which meant an operator who ran it without reading the configuration got a
+    # ranked list of invented companies — and a list of invented companies is worse than
+    # an empty one, because it looks like an answer. The synthetic corpus still exists and
+    # is still needed (it is what lets the pipeline and the tests run without a network),
+    # but it is now something you ASK for rather than something you get by not asking.
+    news_provider: str = "feeds"
+    filings_provider: str = "sec_edgar"
     market_data_provider: str = "unavailable"
-    company_provider: str = "fixture"
+    company_provider: str = "sec"
 
     sec_user_agent: str = Field(
         default="",

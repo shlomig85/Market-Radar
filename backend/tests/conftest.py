@@ -25,6 +25,17 @@ os.environ["MARKETRADAR_DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["MARKETRADAR_ENVIRONMENT"] = "test"
 os.environ.setdefault("MARKETRADAR_LOG_LEVEL", "WARNING")
 
+# Pin every provider to the synthetic corpus for the whole suite, BEFORE any Settings is
+# constructed. The application defaults are the real providers, which is right for an
+# operator and wrong here: a suite whose result depends on whether Reuters answered today
+# is not a test. This is set in the environment rather than only on the `settings` fixture
+# because code reached through the API builds its own registry from the process-wide
+# settings, which would otherwise pick up the developer's .env and go to the network.
+os.environ["MARKETRADAR_NEWS_PROVIDER"] = "fixture"
+os.environ["MARKETRADAR_FILINGS_PROVIDER"] = "fixture"
+os.environ["MARKETRADAR_COMPANY_PROVIDER"] = "fixture"
+os.environ["MARKETRADAR_MARKET_DATA_PROVIDER"] = "unavailable"
+
 
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:

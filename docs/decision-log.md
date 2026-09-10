@@ -617,3 +617,94 @@ computed: this company is strongly exposed, and the exposure runs against it.
 recommendation. The colour, the direction column, the row label and the panel footnote are
 four separate places where the distinction is stated, which is the mitigation available
 without either hiding data or inventing a number.
+
+---
+
+## ADR-025 — The real sources are the default; the synthetic corpus must be asked for
+
+**Context.** `news_provider`, `filings_provider` and `company_provider` all defaulted to
+`fixture` — the synthetic DEMO corpus. An operator who ran `make up` without reading the
+configuration got a ranked list of companies that do not exist.
+
+**Decision.** The defaults are `feeds`, `sec_edgar` and `sec`. The synthetic corpus is still
+present and still necessary — it is what lets the pipeline and the whole test suite run
+without a network — but it is now something you select rather than something you receive by
+not selecting anything.
+
+**Alternatives.** (a) Keep `fixture` as the default and rely on the `DEMO` badges.
+(b) Default to the real providers. (c) Refuse to start until the operator chooses.
+
+**Why.** (a) was the state of the world, and the badges were not enough: a reader looking for
+stocks to research reads the tickers, not the provenance chrome. A fabricated ticker in a
+ranked list is worse than an empty list, because an empty list is obviously not an answer and
+a fabricated one is not obviously anything. (c) turns a first run into a configuration
+exercise and teaches nothing.
+
+The cost of (b) is real and worth stating: publishers and the SEC both refuse anonymous
+requests, so with no contact string configured the news capability resolves `UNAVAILABLE` and
+a first run produces nothing at all. That is the correct failure — "I have no sources" rather
+than "here are eight companies I invented" — and the empty state on the trending page names
+the two variables to set.
+
+**Cost.** An existing `.env` copied from the old `.env.example` still says `fixture`, so
+this change does not reach anyone who already has one; they have to edit it. The test suite
+now pins every provider in `conftest`, at the environment level rather than only on the
+`settings` fixture, because code reached through the API builds its own registry from
+process-wide settings and would otherwise go to the network during a test run.
+
+---
+
+## ADR-026 — A fictional issuer is never listed among stocks, badge or no badge
+
+**Context.** `DataMode` and the `DEMO` badge are the system's general answer to "this figure
+is not real". The trending page is a list of companies a reader might act on, which makes it
+a different kind of surface.
+
+**Decision.** `GET /trending` excludes companies with `is_fictional = true` by default.
+Seeing them requires `include_fictional=true` on the API, or the explicit `?demo=1` URL in the
+UI, where every row is additionally stamped `INVENTED — NOT A REAL COMPANY`.
+
+**Alternatives.** (a) Rely on the existing `DEMO` badge. (b) Exclude them entirely, with no
+way to see them. (c) Exclude by default, with an explicit opt-in.
+
+**Why.** (a) puts the burden of not being misled on the reader, on the one screen where being
+misled is expensive. (b) removes the ability to check the layout and the pipeline end to end
+before any network is configured, which is exactly when a new operator most needs to see that
+the thing works. (c) keeps both properties: the default is safe, and the escape hatch is a URL
+you have to type rather than a control you can nudge by accident.
+
+**Cost.** Two code paths through the same list, and a default-empty page during setup. The
+empty state carries the opt-in link so it is a signpost rather than a dead end.
+
+---
+
+## ADR-027 — The reason line counts independent clusters, and says so when the rest is syndication
+
+**Context.** Every row now carries a plain-language sentence explaining why the company is
+listed. The obvious number to put in it is how many publishers wrote about the company.
+
+**Decision.** The sentence reports the count of independent ancestry clusters among *that
+company's own* evidence. When more publishers than clusters carried it, the sentence says so:
+"2 sources reported it independently of each other, across 5 publishers — the rest are running
+the same story."
+
+**Alternatives.** (a) Publisher count. (b) Cluster count alone. (c) Both, with the
+relationship stated.
+
+**Why.** (a) flatters the evidence exactly where it matters most: five outlets running one
+wire story is one source, and reporting it as five would undo the clustering the entire system
+is built on. (b) is honest but throws away something a reader wants — that a story travelled.
+(c) states the measurement and the reach, and makes the difference between them legible, which
+is the single most useful thing this product knows that a news feed does not.
+
+Two counts were conflated in the first version of this and it is worth recording. The rating
+already carried `independent_clusters`, which counts the *theme's* corroboration; the sentence
+used it, and it can exceed the company's own publisher count, so a company known from one
+article was described as corroborated by seven sources. They are now separate fields
+(`independent_reports` for the company, `independent_clusters` for the theme) and a test
+asserts they are not interchangeable.
+
+**Cost.** Both counts are computed over every matching evidence row rather than the six
+displayed, so the numbers are stable when the display is truncated — at the cost of a count
+that does not visibly match the list beneath it. Stating a weaker claim than the display
+suggests is the right direction for that error to run.

@@ -130,8 +130,84 @@ def test_trace_endpoint_reflects_what_actually_ran(client):
     assert trace["stop_reason"]
 
 
+def test_trending_excludes_invented_issuers_by_default(client):
+    """The single most important guarantee on this endpoint.
+
+    The demo corpus is entirely fictional, so the default response must be EMPTY. A fake
+    ticker in a ranked list of stocks is worse than no list: it looks like an answer.
+    """
+    assert client.get("/trending").json() == []
+
+    included = client.get("/trending?include_fictional=true").json()
+    assert included, "the demo corpus does form a theme with exposed companies"
+    assert all(row["is_fictional"] for row in included)
+
+
+def test_trending_carries_the_articles_behind_each_rating(client):
+    rows = client.get("/trending?include_fictional=true").json()
+    top = rows[0]
+    assert top["headlines"], "a rating without the articles behind it is not checkable"
+    for headline in top["headlines"]:
+        assert headline["title"] and headline["url"]
+        assert headline["publisher"]
+        assert headline["is_synthetic"] is True  # the demo corpus is synthetic throughout
+    # One row per article: several claims from one story must not read as several stories.
+    urls = [h["url"] for h in top["headlines"]]
+    assert len(urls) == len(set(urls))
+    assert top["publisher_count"] == len({h["publisher"] for h in top["headlines"]})
+
+
+def test_trending_states_its_reason_in_plain_language(client):
+    top = client.get("/trending?include_fictional=true").json()[0]
+    reason = top["headline_reason"]
+    assert top["theme_name"] in reason
+    # The reason is for a reader, so none of the internal vocabulary may leak into it.
+    for jargon in ("DIRECT_BENEFICIARY", "order_of_effect", "exposure_score", "_"):
+        assert jargon not in reason
+
+
+def test_trending_counts_corroboration_in_clusters_not_publishers(client):
+    """Syndication must never be presented as corroboration.
+
+    The demo corpus deliberately contains one announcement carried by several outlets. The
+    reason sentence must report the independent-cluster count, and say explicitly that the
+    remaining publishers are running the same story.
+    """
+    top = client.get("/trending?include_fictional=true").json()[0]
+    assert top["publisher_count"] > top["independent_reports"], (
+        "this test needs a syndicated story to be meaningful"
+    )
+    reason = top["headline_reason"]
+    assert f"{top['independent_reports']} sources reported it independently" in reason
+    assert "running the same story" in reason
+    assert f"{top['publisher_count']} publishers have reported" not in reason
+
+
+def test_company_corroboration_is_not_the_themes_corroboration(client):
+    """The two counts must stay separate.
+
+    A company can sit inside a heavily corroborated theme on the strength of one article
+    about itself. `independent_clusters` is the theme's number; `independent_reports` is the
+    company's, and the sentence a reader sees must be built from the second.
+    """
+    rows = client.get("/trending?include_fictional=true").json()
+    assert any(row["independent_reports"] != row["independent_clusters"] for row in rows)
+
+
+def test_corroboration_counts_survive_truncating_the_headline_list(client):
+    """Showing fewer articles must not change what is claimed about the evidence.
+
+    Both counts are computed over every matching row, so a company backed by ten articles
+    still reports ten articles' worth of corroboration when only six are displayed.
+    """
+    rows = client.get("/trending?include_fictional=true").json()
+    top = max(rows, key=lambda r: r["publisher_count"])
+    assert top["publisher_count"] >= len({h["publisher"] for h in top["headlines"]})
+    assert top["independent_reports"] >= 1
+
+
 def test_trending_ranks_companies_and_decomposes_every_rating(client):
-    rows = client.get("/trending").json()
+    rows = client.get("/trending?include_fictional=true").json()
     assert rows, "the demo corpus forms a theme with exposed companies"
 
     assert [row["rank"] for row in rows] == list(range(1, len(rows) + 1))
@@ -153,14 +229,16 @@ def test_trending_ranks_companies_and_decomposes_every_rating(client):
 
 
 def test_trending_can_hide_headwinds_but_shows_them_by_default(client):
-    default = client.get("/trending").json()
-    tailwinds_only = client.get("/trending?include_headwinds=false").json()
+    default = client.get("/trending?include_fictional=true").json()
+    tailwinds_only = client.get(
+        "/trending?include_fictional=true&include_headwinds=false"
+    ).json()
     assert all(row["direction"] == "tailwind" for row in tailwinds_only)
     assert len(tailwinds_only) <= len(default)
 
 
 def test_trending_respects_its_limit(client):
-    assert len(client.get("/trending?limit=2").json()) <= 2
+    assert len(client.get("/trending?include_fictional=true&limit=2").json()) <= 2
 
 
 def test_subjects_distinguish_discovered_topics_from_declared_ones(client):

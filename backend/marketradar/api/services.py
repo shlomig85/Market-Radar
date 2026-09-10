@@ -15,6 +15,7 @@ from marketradar.api.schemas import (
     AgentRunOut,
     EvidenceOut,
     ExposureOut,
+    HeadlineOut,
     QuestionOut,
     ReportOut,
     ResearchTraceOut,
@@ -27,6 +28,7 @@ from marketradar.api.schemas import (
     TrendingCompanyOut,
     TrendOut,
 )
+from marketradar.domain.enums import EntityType
 from marketradar.domain.models import (
     AgentRun,
     Company,
@@ -55,7 +57,7 @@ from marketradar.evidence.independence import (
     EvidenceDescriptor,
     profile,
 )
-from marketradar.scoring.company_trend import rate_companies
+from marketradar.scoring.company_trend import CompanyTrendRating, rate_companies
 
 
 def _latest_scores(session: Session, theme_id: str) -> dict[str, Score]:
@@ -317,8 +319,148 @@ def theme_evidence(session: Session, slug: str, limit: int = 200) -> list[Eviden
     return out
 
 
+#: Articles shown per company. Enough to see whether a story is corroborated, few enough to
+#: read. Past this the list stops being evidence a reader checks and becomes a feed.
+HEADLINES_PER_COMPANY = 6
+
+
+def _headlines_for(
+    session: Session, company_key: str, subjects: set[str], limit: int
+) -> tuple[list[HeadlineOut], bool, int, int]:
+    """The articles behind one company, and whether any of them named it directly.
+
+    Two passes, and the order matters. First: documents whose evidence produced an event
+    *about this company*. If none exists — which is the normal case for a company reached by
+    traversal, two or three hops out along the value chain — fall back to the articles behind
+    the theme itself, flagged ``about_company=False``.
+
+    The fallback is labelled rather than silent because the two say different things. "Reuters
+    reported this company is expanding capacity" and "Reuters reported the sector is expanding
+    capacity, and this company supplies it" are not the same claim, and a reader deciding
+    whether to look further needs to know which one they are being shown.
+
+    The last two return values are how many INDEPENDENT ancestry clusters the matching
+    evidence falls into, and how many distinct publishers carried it. Both are counted over
+    every matching row rather than over the handful displayed: truncating the list for
+    readability must not change the claim about how well corroborated something is. The
+    cluster count is corroboration for *this company* — not the same number as the theme's
+    cluster count, and not interchangeable with it.
+    """
+    direct = session.execute(
+        select(EvidenceItem, SourceDocument, Source)
+        .join(EventEvidence, EventEvidence.evidence_id == EvidenceItem.id)
+        .join(Event, Event.id == EventEvidence.event_id)
+        .join(SourceDocument, SourceDocument.id == EvidenceItem.document_id)
+        .join(Source, Source.id == SourceDocument.source_id)
+        .where(Event.entity_type == EntityType.COMPANY, Event.entity_key == company_key)
+        .order_by(SourceDocument.published_at.desc())
+        .limit(limit * 3)
+    ).all()
+
+    about_company = bool(direct)
+    rows = direct
+    if not rows and subjects:
+        rows = session.execute(
+            select(EvidenceItem, SourceDocument, Source)
+            .join(SourceDocument, SourceDocument.id == EvidenceItem.document_id)
+            .join(Source, Source.id == SourceDocument.source_id)
+            .where(EvidenceItem.subject_key.in_(subjects))
+            .order_by(SourceDocument.published_at.desc())
+            .limit(limit * 3)
+        ).all()
+
+    seen: set[str] = set()
+    # Counted over every matching evidence row, not only the ones that fit in `limit`:
+    # truncating the display must not change the claim about how well corroborated it is.
+    clusters = {item.cluster_id or item.id for item, _, _ in rows}
+    publishers = {source.publisher for _, _, source in rows}
+    out: list[HeadlineOut] = []
+    for item, document, source in rows:
+        # One row per article. Several extracted claims routinely come from one story, and
+        # showing the same headline three times would read as three confirmations.
+        if document.url in seen:
+            continue
+        seen.add(document.url)
+        out.append(
+            HeadlineOut(
+                title=document.title,
+                url=document.url,
+                publisher=source.publisher,
+                source_class=source.source_class.value,
+                published_at=document.published_at,
+                claim=item.claim,
+                about_company=about_company,
+                is_synthetic=source.is_synthetic,
+            )
+        )
+        if len(out) >= limit:
+            break
+    return out, about_company, len(clusters), len(publishers)
+
+
+def _reason(
+    rating: CompanyTrendRating,
+    headlines: list[HeadlineOut],
+    direct: bool,
+    clusters: int,
+    publishers: int,
+) -> str:
+    """One sentence saying why this company is on the list, in a reader's language.
+
+    Everything in it was measured; none of it is new. The point is that "Direct Beneficiary
+    of 'AI Memory Demand' at order 1" and "Nvidia makes what this story is about" are the same
+    fact, and only one of them is a reason to keep reading.
+    """
+    role = rating.role.value
+    theme = rating.theme_name
+    hops = rating.order_of_effect
+
+    if role == "DIRECT_BENEFICIARY":
+        core = f"{theme} is accelerating, and this company is at the centre of it"
+    elif role in {"COMPETITOR", "SUBSTITUTE", "LOSER"}:
+        core = f"{theme} is accelerating, and it works against this company"
+    elif role == "SUPPLIER":
+        core = f"{theme} is accelerating, and this company supplies the companies driving it"
+    elif role == "CUSTOMER":
+        core = f"{theme} is accelerating, and this company buys from the companies driving it"
+    else:
+        core = f"{theme} is accelerating, and this company is exposed to it"
+
+    if hops > 1:
+        core += f", {hops} steps down the supply chain"
+
+    if not headlines:
+        return f"{core}. No article naming it has been ingested yet."
+    if not direct:
+        return (
+            f"{core}. No article named it directly — it is here because of its position in "
+            f"the value chain, so the stories below are about the theme, not the company."
+        )
+
+    # Corroboration is the independent-cluster count, never the publisher count. Those two
+    # numbers diverge exactly when a wire story is syndicated, which is the case where the
+    # publisher count flatters the evidence most — five outlets running one press release
+    # is one source, and saying "five publishers" there would undo the whole point of the
+    # clustering that sits underneath this number.
+    #
+    # The count is the one computed over THIS COMPANY's evidence. `rating.independent_
+    # clusters` counts the theme's, which is a larger and different claim: it can exceed
+    # the publisher count here, and using it would assert corroboration this company's own
+    # coverage does not have.
+    if clusters <= 1:
+        support = f"So far this rests on a single source ({headlines[0].publisher})"
+    else:
+        support = f"{clusters} sources reported it independently of each other"
+    if publishers > clusters:
+        support += f", across {publishers} publishers — the rest are running the same story"
+    return f"{core}. {support}."
+
+
 def list_trending(
-    session: Session, limit: int = 25, include_headwinds: bool = True
+    session: Session,
+    limit: int = 25,
+    include_headwinds: bool = True,
+    include_fictional: bool = False,
 ) -> list[TrendingCompanyOut]:
     """Companies ranked by how strongly they are caught up in something that is changing.
 
@@ -331,14 +473,43 @@ def list_trending(
     Headwind rows are included by default and labelled, never dropped: a competitor of a
     beneficiary is genuinely exposed to the theme, and hiding it would leave the reader to
     assume every name on the list benefits.
+
+    **Fictional issuers are excluded by default.** The DEMO corpus exists so the pipeline can
+    be exercised without a network; its companies are invented, and an invented company in a
+    ranked list of stocks is worse than an empty list. A badge is not sufficient protection
+    here — this is the one screen a reader might act on — so the filter is the default and
+    ``include_fictional`` has to be asked for.
     """
     ratings = rate_companies(session, as_of=datetime.now(tz=UTC), persist=False)
     if not include_headwinds:
         ratings = [r for r in ratings if r.direction == "tailwind"]
+    if not include_fictional:
+        fictional = {
+            company.key
+            for company in session.scalars(
+                select(Company).where(Company.is_fictional.is_(True))
+            ).all()
+        }
+        ratings = [r for r in ratings if r.company_key not in fictional]
+
+    companies = {c.key: c for c in session.scalars(select(Company)).all()}
+    theme_subjects: dict[str, set[str]] = {}
 
     rows: list[TrendingCompanyOut] = []
     for position, rating in enumerate(ratings[:limit], start=1):
         result = rating.result
+        if rating.theme_slug not in theme_subjects:
+            theme = session.scalar(select(Theme).where(Theme.slug == rating.theme_slug))
+            theme_subjects[rating.theme_slug] = set(
+                (theme.anchor_entities or {}).get("subjects", []) if theme else []
+            )
+        headlines, direct, clusters, publishers = _headlines_for(
+            session,
+            rating.company_key,
+            theme_subjects[rating.theme_slug],
+            HEADLINES_PER_COMPANY,
+        )
+        company = companies.get(rating.company_key)
         rows.append(
             TrendingCompanyOut(
                 rank=position,
@@ -373,6 +544,13 @@ def list_trending(
                     )
                     for c in (result.components if result else [])
                 ],
+                is_fictional=bool(company and company.is_fictional),
+                headline_reason=_reason(
+                    rating, headlines, direct, clusters, publishers
+                ),
+                headlines=headlines,
+                publisher_count=publishers,
+                independent_reports=clusters,
             )
         )
     return rows
