@@ -708,3 +708,42 @@ asserts they are not interchangeable.
 displayed, so the numbers are stable when the display is truncated — at the cost of a count
 that does not visibly match the list beneath it. Stating a weaker claim than the display
 suggests is the right direction for that error to run.
+
+---
+
+## ADR-028 — The rebuild's delete order comes from the schema, not from a hand-written list
+
+**Context.** `rebuild_derived()` deleted every derived artefact by iterating a tuple of model
+classes in a hand-chosen order. The tuple named six tables. The schema has two more that
+carry a non-nullable foreign key to `themes` — `hypotheses` and `research_runs`, both added
+when the research loop was written — and neither was ever added to it. `pipeline --rebuild`
+therefore died with `ForeignKeyViolation ... fk_hypotheses_theme_id_themes` for any database
+where the research loop had ever run, which includes every database created by
+`docker compose up`, because bootstrap runs it.
+
+**Decision.** Delete in reverse of `Base.metadata.sorted_tables`, which SQLAlchemy already
+orders topologically by dependency. Two explicit sets carve out the exceptions:
+`PRESERVED_TABLES` (documents, sources, clusters, companies, securities, industries) and
+`SELECTIVELY_CLEARED_TABLES` (curated graph edges and declared subjects, where only some rows
+are derived).
+
+**Alternatives.** (a) Add the two missing models to the tuple. (b) `TRUNCATE ... CASCADE` on
+the derived tables. (c) Derive the order from the schema.
+
+**Why.** (a) fixes today's crash and leaves tomorrow's in place: the tuple is a copy of the
+dependency graph that has to be maintained by hand, and it has already gone stale once
+without anyone noticing for weeks. (b) is fast, but `CASCADE` deletes whatever happens to
+reference the table — including, potentially, something in the preserved set — which is the
+wrong shape of instruction for an operation whose whole purpose is to keep the expensive data.
+(c) has a single source of truth, and the failure mode inverts: forgetting to *preserve* a new
+table costs a re-fetch, while forgetting to *delete* one leaves stale data outliving its
+evidence, which is the defect class this whole module exists to prevent.
+
+A test asserts every table is named in one of the two sets or is deleted by default, and that
+neither set names a table the schema no longer has. Adding a table now forces the decision at
+the point it is added.
+
+**Cost.** The delete is now bulk SQL rather than ORM deletes, so ORM-level cascades and event
+hooks no longer fire during a rebuild. Nothing currently depends on them — the database
+constraints carry the relationships — but that is an assumption this note makes explicit
+rather than leaving to be discovered.

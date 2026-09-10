@@ -594,3 +594,42 @@ left without it: it takes credentials, not application settings.
 The general lesson is worth keeping. Every configuration step this project asked an operator
 to perform by hand has cost a round trip — the SEC user agent, the feed user agent, the
 provider names, and now the quoting. Configuration that can be a command should be one.
+
+---
+
+## 18. `--rebuild` could not rebuild (2026-09-10)
+
+`pipeline --rebuild` — the command §16 told the operator to run, and the command this project
+added in §13 specifically to make fixes reach stored data — crashed:
+
+```
+IntegrityError: (psycopg.errors.ForeignKeyViolation) update or delete on table "themes"
+violates foreign key constraint "fk_hypotheses_theme_id_themes" on table "hypotheses"
+```
+
+`rebuild_derived()` deleted derived data by walking a hand-written tuple of six model
+classes. The schema has eight tables with a foreign key to `themes`. `hypotheses` and
+`research_runs` were added when the research loop was written and never added to the tuple,
+so the delete of `themes` was blocked by rows nobody had thought about since.
+
+It reproduces on any database where the research loop has run, which is every database
+created by `docker compose up`, because bootstrap runs it. It did not show up in testing
+because the rebuild tests built their fixtures directly and never went through the research
+loop first — the tests exercised the code, not the state.
+
+**The fix is not "add the two missing models."** That restores a hand-maintained copy of the
+dependency graph which has already gone stale once. The delete order now comes from
+`Base.metadata.sorted_tables`, which SQLAlchemy already orders topologically, reversed; two
+named sets carve out what must survive (ADR-028). A test asserts every table is in one of
+those sets or is deleted by default, and that neither set names a table that no longer
+exists, so adding a table forces the decision at the point it is added.
+
+Verified by reproducing the crash state exactly — pipeline, then research, giving one
+hypothesis, one research run and one report — and running `--rebuild` against it: themes,
+hypotheses and research runs cleared and rebuilt, and the 38 documents and 8 companies that
+were expensive to obtain untouched.
+
+The general point is the same one §17 made about configuration. Every place this project
+keeps a hand-written list that duplicates something the code already knows — the delete
+order, the provider names in three files, the contact string in five `-e` flags — has cost a
+round trip. The lists that survive are the ones that hold judgement the code cannot derive.

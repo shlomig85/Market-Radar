@@ -23,9 +23,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
+from marketradar.db.base import Base
 from marketradar.domain.models import (
     EntityRelationship,
     Event,
@@ -33,14 +34,7 @@ from marketradar.domain.models import (
     FindingEvidence,
     ResearchFinding,
     ResearchReport,
-    Score,
-    Signal,
-    SignalObservation,
     Subject,
-    Theme,
-    ThemeCompanyExposure,
-    ThemeSignal,
-    Trend,
 )
 from marketradar.entities.relationships import (
     RELATIONSHIP_EXTRACTOR_NAME,
@@ -50,6 +44,36 @@ from marketradar.evidence.extractor import EXTRACTOR_NAME, EXTRACTOR_VERSION
 from marketradar.logging import get_logger
 
 log = get_logger(__name__)
+
+
+#: Tables a full rebuild must never touch, each for a stated reason. Everything not named
+#: here is derived and gets emptied, so a new table is cleaned by default and a new table
+#: that must SURVIVE has to be argued for in this list. That is the right way round: the
+#: failure mode of forgetting to preserve something is a re-fetch, and the failure mode of
+#: forgetting to delete something is stale data that outlives its evidence.
+PRESERVED_TABLES = frozenset(
+    {
+        # Expensive, rate-limited, and not derived from anything. Re-fetching a corpus to
+        # re-run a regex over it would be absurd.
+        "sources",
+        "source_documents",
+        "evidence_clusters",
+        # Reference data: the company universe and the industry tree. These come from the
+        # company-data provider or the demo seed, not from an extractor.
+        "companies",
+        "securities",
+        "industries",
+    }
+)
+# Note what is NOT here: `alembic_version`. It is Alembic's own bookkeeping and is not part
+# of `Base.metadata`, so the loop below never sees it. Listing it would suggest this code
+# had a say in the matter, and the test that cross-checks these names against the schema
+# would then fail on a table that does not exist as far as the models are concerned.
+
+#: Tables where only SOME rows are derived, handled explicitly above rather than emptied:
+#: curated graph edges have no extractor to withdraw them, and declared subjects came from
+#: the built-in lexicon rather than from discovery.
+SELECTIVELY_CLEARED_TABLES = frozenset({"entity_relationships", "subjects"})
 
 
 @dataclass
@@ -202,43 +226,48 @@ def rebuild_derived(session: Session) -> RetractionReport:
     """
     report = RetractionReport()
 
-    for edge in session.scalars(
-        select(EntityRelationship).where(EntityRelationship.extractor_version.is_not(None))
-    ).all():
-        session.delete(edge)
-        report.edges_retracted += 1
+    # Counted before the wholesale delete below, because the report is about what was
+    # withdrawn and a bulk statement does not tell us.
+    report.events_retracted = session.scalar(select(func.count()).select_from(Event)) or 0
+    report.evidence_retracted = (
+        session.scalar(select(func.count()).select_from(EvidenceItem)) or 0
+    )
+    report.findings_retracted = (
+        session.scalar(select(func.count()).select_from(ResearchFinding)) or 0
+    )
+    report.edges_retracted = (
+        session.scalar(
+            select(func.count())
+            .select_from(EntityRelationship)
+            .where(EntityRelationship.extractor_version.is_not(None))
+        )
+        or 0
+    )
+
+    # Curated edges survive, so this table is emptied selectively rather than truncated.
+    session.execute(
+        delete(EntityRelationship).where(EntityRelationship.extractor_version.is_not(None))
+    )
     session.execute(
         update(EntityRelationship)
         .where(EntityRelationship.evidence_id.is_not(None))
         .values(evidence_id=None)
     )
+    # A declared subject came from the built-in lexicon, not from an extractor.
+    session.execute(delete(Subject).where(Subject.is_discovered.is_(True)))
     session.flush()
 
-    # Ordered so a row is gone before anything that points at it.
-    for model in (ThemeCompanyExposure, ThemeSignal, Trend, SignalObservation, Signal, Theme):
-        for row in session.scalars(select(model)).all():
-            session.delete(row)
-        session.flush()
-
-    for row in session.scalars(select(ResearchFinding)).all():
-        session.delete(row)
-        report.findings_retracted += 1
-    for row in session.scalars(select(ResearchReport)).all():
-        session.delete(row)
-    session.flush()
-
-    for row in session.scalars(select(Event)).all():
-        session.delete(row)
-        report.events_retracted += 1
-    session.flush()
-
-    for row in session.scalars(select(EvidenceItem)).all():
-        session.delete(row)
-        report.evidence_retracted += 1
-    for row in session.scalars(select(Subject).where(Subject.is_discovered.is_(True))).all():
-        session.delete(row)
-    for row in session.scalars(select(Score)).all():
-        session.delete(row)
+    # Everything else derived, deleted in reverse dependency order taken from the schema
+    # itself. This used to be a hand-written tuple of models, and the tuple went stale: it
+    # named six tables that reference `themes` and missed two more, so a rebuild died on
+    # `fk_hypotheses_theme_id_themes` — a foreign key nobody had thought about since the
+    # research loop was written. `sorted_tables` is topologically ordered by dependency, so
+    # reversing it deletes children before parents, and a table added later is covered
+    # without anyone remembering to come back here.
+    for table in reversed(Base.metadata.sorted_tables):
+        if table.name in PRESERVED_TABLES or table.name in SELECTIVELY_CLEARED_TABLES:
+            continue
+        session.execute(delete(table))
     session.flush()
 
     report.notes.append(

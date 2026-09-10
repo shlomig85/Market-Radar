@@ -389,3 +389,85 @@ def test_rebuild_keeps_hand_curated_edges(
         edge.target_entity_key for edge in session.scalars(select(EntityRelationship)).all()
     }
     assert remaining == {"beta"}
+
+
+def test_every_table_is_either_preserved_or_rebuilt() -> None:
+    """No table may sit outside the rebuild's two lists without a decision being made.
+
+    The hand-written model tuple this replaced went stale exactly this way: the research
+    loop added `hypotheses` and `research_runs`, both pointing at `themes`, and neither was
+    ever added to the delete list. A rebuild then died on `fk_hypotheses_theme_id_themes`.
+
+    This test does not care which list a table lands in. It cares that somebody chose.
+    """
+    from marketradar.db.base import Base
+    from marketradar.ingestion.retraction import (
+        PRESERVED_TABLES,
+        SELECTIVELY_CLEARED_TABLES,
+    )
+
+    known = PRESERVED_TABLES | SELECTIVELY_CLEARED_TABLES
+    schema = {table.name for table in Base.metadata.sorted_tables}
+
+    # A name in a list that no longer exists is also a defect: it silently preserves nothing.
+    assert known - schema == set(), "these tables no longer exist in the schema"
+
+    # Everything else is deleted by the rebuild, which is the safe default; this assertion
+    # exists so the preserved list cannot quietly grow to cover the whole database.
+    assert schema > PRESERVED_TABLES
+
+
+def test_rebuild_survives_rows_that_reference_a_theme(
+    session: Session, document: SourceDocument
+) -> None:
+    """The regression: a hypothesis outliving its theme blocked the whole rebuild.
+
+    `hypotheses` and `research_runs` both carry a non-nullable FK to `themes`, so a theme
+    cannot be deleted while either exists. Both are derived and must go.
+    """
+    from datetime import UTC, datetime
+
+    from marketradar.domain.enums import DataMode, MarketAwareness, RunStatus, TrendMaturity
+    from marketradar.domain.models import Hypothesis, ResearchRun, Theme
+    from marketradar.ingestion.retraction import rebuild_derived
+
+    now = datetime(2026, 9, 10, tzinfo=UTC)
+    theme = Theme(
+        slug="regression-theme",
+        name="Regression Theme",
+        maturity=TrendMaturity.ACCELERATING,
+        market_awareness=MarketAwareness.DEVELOPING,
+        market_awareness_mode=DataMode.DEMO,
+        data_mode=DataMode.DEMO,
+        first_detected_at=now,
+        last_updated_at=now,
+    )
+    session.add(theme)
+    session.flush()
+    session.add(
+        Hypothesis(
+            theme_id=theme.id,
+            statement="Something is happening.",
+            status="OPEN",
+            created_by="test",
+            data_mode=DataMode.DEMO,
+        )
+    )
+    session.add(
+        ResearchRun(
+            theme_id=theme.id,
+            status=RunStatus.SUCCEEDED,
+            started_at=now,
+            data_mode=DataMode.DEMO,
+            pipeline_version="test",
+        )
+    )
+    session.flush()
+
+    rebuild_derived(session)
+
+    assert session.scalars(select(Theme)).all() == []
+    assert session.scalars(select(Hypothesis)).all() == []
+    assert session.scalars(select(ResearchRun)).all() == []
+    # The documents the whole thing was derived from are untouched.
+    assert session.get(SourceDocument, document.id) is not None

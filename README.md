@@ -265,7 +265,7 @@ verbatim, which catches most of it; this is the operator's veto for the rest.
 ## Testing
 
 ```bash
-make test              # 347 tests
+make test              # 349 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -306,7 +306,7 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 27 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 28 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
 | `docs/data-sources.md` | every free public source read, and why it can be trusted |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
