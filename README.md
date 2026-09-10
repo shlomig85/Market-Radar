@@ -185,19 +185,36 @@ An edge that was seeded by hand rather than read out of a document prints
 
 **The real sources are the default** (ADR-025). What they are NOT is anonymous: publishers
 block unidentified scrapers and the SEC requires a contact address under its fair-access
-policy, so both refuse to fetch rather than send an anonymous request. Until you put a
-contact string in `.env`, the news capability reports `UNAVAILABLE` and the trending page is
-empty and says which two variables to set.
+policy, so both refuse to fetch rather than send an anonymous request.
+
+One command sets it up:
 
 ```bash
-MARKETRADAR_FEED_USER_AGENT=Market Radar you@example.com
-MARKETRADAR_SEC_USER_AGENT=Market Radar you@example.com
+make configure EMAIL=you@example.com
 ```
 
-**If you copied `.env` before this change it still says `fixture`** — editing the example
-does not reach a file you already have. Set `MARKETRADAR_NEWS_PROVIDER=feeds`,
-`MARKETRADAR_FILINGS_PROVIDER=sec_edgar` and `MARKETRADAR_COMPANY_PROVIDER=sec` in your own
-`.env`, or delete it and copy the example again.
+That writes your contact string and the provider choices into `.env`, creating it from
+`.env.example` if you have none and rewriting the values in place if you do — which matters,
+because a `.env` you copied before the defaults changed still says `fixture`, and editing the
+example can never reach a file you already have.
+
+> Do not paste those settings at a shell prompt. The contact string contains a space, so
+> `MARKETRADAR_FEED_USER_AGENT=Market Radar you@example.com` is a *command* whose second word
+> is `Radar`, and the shell says `command not found: Radar`. That is why `make configure`
+> exists.
+
+The containers read `.env` too, so this is also the last time you need `-e` flags on a
+`docker compose run`. Then:
+
+```bash
+docker compose down -v && docker compose up -d     # Docker
+make docker-cli cmd="pipeline --rebuild"
+
+make reset && make pipeline                        # or host processes
+```
+
+Until a contact string is set the news capability reports `UNAVAILABLE`, and the trending
+page is empty and names the variables to set rather than showing you anything invented.
 
 The full source list and the reliability argument behind it is in
 [`docs/data-sources.md`](docs/data-sources.md). To run one command against real sources

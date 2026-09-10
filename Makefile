@@ -8,7 +8,7 @@ PY := python3
 
 .DEFAULT_GOAL := help
 .PHONY: help up down logs setup db-up db-down migrate migration seed pipeline research show \
-        providers stats graph trending subjects feeds reset api web test test-unit \
+        providers stats graph trending subjects feeds configure reset api web test test-unit \
         test-integration test-e2e \
         lint typecheck check all docker-cli
 
@@ -64,6 +64,14 @@ stats: ## Row counts across the intelligence tables
 
 graph: ## Show knowledge-graph edges and the evidence each one rests on
 	cd $(BACKEND) && $(PY) -m marketradar.cli graph --limit $(or $(limit),40)
+
+configure: ## One-time setup: make configure EMAIL=you@example.com
+	@test -n "$(EMAIL)" || { echo "Usage: make configure EMAIL=you@example.com"; exit 1; }
+	@test -f .env || cp .env.example .env
+	@# Written with a script rather than pasted by hand: the contact string contains a
+	@# space, and a pasted `MARKETRADAR_FEED_USER_AGENT=Market Radar you@x` is a shell
+	@# command whose second word is "Radar". That mistake costs ten minutes to diagnose.
+	@python3 scripts/configure.py "$(EMAIL)"
 
 trending: ## Companies ranked 0-10 on trend exposure
 	cd $(BACKEND) && $(PY) -m marketradar.cli trending --limit $(or $(limit),20)

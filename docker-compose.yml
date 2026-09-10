@@ -10,6 +10,8 @@
 services:
   postgres:
     image: postgres:16-alpine
+    # No env_file here: the database takes POSTGRES_* credentials, not application settings,
+    # and handing it the operator's .env would only invite a surprising override.
     environment:
       POSTGRES_USER: marketradar
       POSTGRES_PASSWORD: marketradar
@@ -32,6 +34,13 @@ services:
   bootstrap:
     build:
       context: ./backend
+    # The operator's .env, so a contact string and a provider choice are set ONCE in a file
+    # instead of being repeated as -e flags on every command. `required: false` keeps a
+    # checkout with no .env working. Anything under `environment:` below still wins, which
+    # is what stops a host-side DATABASE_URL of localhost from reaching a container.
+    env_file:
+      - path: .env
+        required: false
     environment:
       MARKETRADAR_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@postgres:5432/marketradar
       MARKETRADAR_LOG_FORMAT: console
@@ -68,6 +77,13 @@ services:
   api:
     build:
       context: ./backend
+    # The operator's .env, so a contact string and a provider choice are set ONCE in a file
+    # instead of being repeated as -e flags on every command. `required: false` keeps a
+    # checkout with no .env working. Anything under `environment:` below still wins, which
+    # is what stops a host-side DATABASE_URL of localhost from reaching a container.
+    env_file:
+      - path: .env
+        required: false
     environment:
       MARKETRADAR_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@postgres:5432/marketradar
       MARKETRADAR_CORS_ORIGINS: http://localhost:3000
@@ -98,6 +114,13 @@ services:
   cli:
     build:
       context: ./backend
+    # The operator's .env, so a contact string and a provider choice are set ONCE in a file
+    # instead of being repeated as -e flags on every command. `required: false` keeps a
+    # checkout with no .env working. Anything under `environment:` below still wins, which
+    # is what stops a host-side DATABASE_URL of localhost from reaching a container.
+    env_file:
+      - path: .env
+        required: false
     environment:
       MARKETRADAR_DATABASE_URL: postgresql+psycopg://marketradar:marketradar@postgres:5432/marketradar
       MARKETRADAR_LOG_FORMAT: console
@@ -124,6 +147,13 @@ services:
   web:
     build:
       context: ./frontend
+    # The operator's .env, so a contact string and a provider choice are set ONCE in a file
+    # instead of being repeated as -e flags on every command. `required: false` keeps a
+    # checkout with no .env working. Anything under `environment:` below still wins, which
+    # is what stops a host-side DATABASE_URL of localhost from reaching a container.
+    env_file:
+      - path: .env
+        required: false
     environment:
       # Server-side fetch across the compose network; the browser only ever talks to :3000.
       MARKETRADAR_API_URL: http://api:8000

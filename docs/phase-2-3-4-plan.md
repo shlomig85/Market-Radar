@@ -559,3 +559,38 @@ This container's egress policy denies all sixteen feed hosts and `sec.gov` (403 
 so the live path could not be exercised in this session — the layout above was checked against
 the synthetic corpus via `?demo=1`. The live run has to happen on the operator's machine,
 where 11-14 of the 16 feeds answered previously.
+
+---
+
+## 17. `command not found: Radar` (2026-09-10)
+
+§16 shipped the right defaults and then told the operator to configure them by pasting five
+lines into a terminal. The contact string publishers require contains a space, so
+
+```
+MARKETRADAR_FEED_USER_AGENT=Market Radar shlomig85@gmail.com
+```
+
+is not an assignment, it is a command whose second word is `Radar`. The shell said
+`command not found: Radar` twice and the operator was no further forward.
+
+Two things were wrong, and only one of them was the documentation.
+
+**The instructions were a trap.** A fenced block that looks pasteable will be pasted. The fix
+is `make configure EMAIL=you@example.com`, which writes the values into `.env` — creating it
+from the example if absent, rewriting keys in place if present, preserving comments and
+ordering, and idempotent across repeated runs. It also reaches the case a change to
+`.env.example` never can: an operator who copied `.env` before the defaults changed.
+
+**The containers never read `.env` at all.** `docker-compose.yml` had no `env_file` anywhere,
+which is why every operator command in this project's history has carried five `-e` flags.
+Adding `env_file` with `required: false` to `bootstrap`, `api`, `cli` and `web` fixes it, and
+is safe because Compose gives `environment:` precedence over `env_file:` — so the in-container
+`MARKETRADAR_DATABASE_URL` still points at the `postgres` service rather than at the
+`localhost` a host-side `.env` carries, and `web` still reaches the API at `http://api:8000`.
+Verified by reading back `docker compose --profile cli config`. `postgres` is deliberately
+left without it: it takes credentials, not application settings.
+
+The general lesson is worth keeping. Every configuration step this project asked an operator
+to perform by hand has cost a round trip — the SEC user agent, the feed user agent, the
+provider names, and now the quoting. Configuration that can be a command should be one.
