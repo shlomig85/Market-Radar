@@ -84,6 +84,44 @@ export interface Exposure {
   data_mode: DataMode;
 }
 
+export interface TrendingCompany {
+  rank: number;
+  company_key: string;
+  company_name: string;
+  ticker: string | null;
+  rating: number;
+  score: number;
+  direction: "tailwind" | "headwind";
+  theme_slug: string;
+  theme_name: string;
+  role: string;
+  order_of_effect: number;
+  exposure_score: number;
+  independent_clusters: number;
+  theme_count: number;
+  data_mode: DataMode;
+  rationale: string;
+  weight_coverage: number;
+  unavailable_components: string[];
+  components: ScoreComponent[];
+}
+
+export interface Subject {
+  key: string;
+  term: string;
+  label: string | null;
+  document_count: number;
+  cluster_count: number;
+  emergence: number;
+  specificity: number;
+  salience: number;
+  is_discovered: boolean;
+  discovery_version: string;
+  data_mode: DataMode;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
 export interface ThemeSummary {
   slug: string;
   name: string;
@@ -251,6 +289,8 @@ async function get<T>(path: string): Promise<T | null> {
 
 export const api = {
   providers: () => get<ProviderHealth[]>("/providers"),
+  trending: (limit = 25) => get<TrendingCompany[]>(`/trending?limit=${limit}`),
+  subjects: (limit = 40) => get<Subject[]>(`/subjects?limit=${limit}`),
   themes: () => get<ThemeSummary[]>("/themes"),
   theme: (slug: string) => get<ThemeDetail>(`/themes/${slug}`),
   evidence: (slug: string) => get<Evidence[]>(`/themes/${slug}/evidence`),

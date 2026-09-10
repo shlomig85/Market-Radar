@@ -130,6 +130,50 @@ def test_trace_endpoint_reflects_what_actually_ran(client):
     assert trace["stop_reason"]
 
 
+def test_trending_ranks_companies_and_decomposes_every_rating(client):
+    rows = client.get("/trending").json()
+    assert rows, "the demo corpus forms a theme with exposed companies"
+
+    assert [row["rank"] for row in rows] == list(range(1, len(rows) + 1))
+    assert [row["score"] for row in rows] == sorted((r["score"] for r in rows), reverse=True)
+
+    top = rows[0]
+    assert 0.0 <= top["rating"] <= 10.0
+    # The 0-10 figure must be the stored 0-100 score, not a separately computed number.
+    assert top["rating"] == round(top["score"] / 10.0, 1)
+    assert top["data_mode"] == "DEMO"
+    assert top["direction"] in {"tailwind", "headwind"}
+
+    # A rating is never served without the basis for it.
+    assert top["components"], "every rating carries its decomposition"
+    assert "price_confirmation" in top["unavailable_components"]
+    unavailable = [c for c in top["components"] if c["key"] == "price_confirmation"]
+    assert unavailable and unavailable[0]["available"] is False
+    assert 0.0 < top["weight_coverage"] < 1.0
+
+
+def test_trending_can_hide_headwinds_but_shows_them_by_default(client):
+    default = client.get("/trending").json()
+    tailwinds_only = client.get("/trending?include_headwinds=false").json()
+    assert all(row["direction"] == "tailwind" for row in tailwinds_only)
+    assert len(tailwinds_only) <= len(default)
+
+
+def test_trending_respects_its_limit(client):
+    assert len(client.get("/trending?limit=2").json()) <= 2
+
+
+def test_subjects_distinguish_discovered_topics_from_declared_ones(client):
+    subjects = client.get("/subjects").json()
+    assert subjects
+    assert all(subject["cluster_count"] >= 0 for subject in subjects)
+    assert [s["salience"] for s in subjects] == sorted(
+        (s["salience"] for s in subjects), reverse=True
+    )
+    discovered = client.get("/subjects?discovered_only=true").json()
+    assert all(subject["is_discovered"] for subject in discovered)
+
+
 def test_unknown_theme_returns_a_structured_404(client):
     response = client.get("/themes/does-not-exist")
     assert response.status_code == 404

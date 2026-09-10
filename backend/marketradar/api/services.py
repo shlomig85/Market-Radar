@@ -6,6 +6,8 @@ by the CLI.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -19,8 +21,10 @@ from marketradar.api.schemas import (
     ScoreComponentOut,
     ScoreOut,
     SearchRunOut,
+    SubjectOut,
     ThemeDetailOut,
     ThemeSummaryOut,
+    TrendingCompanyOut,
     TrendOut,
 )
 from marketradar.domain.models import (
@@ -39,6 +43,7 @@ from marketradar.domain.models import (
     Signal,
     Source,
     SourceDocument,
+    Subject,
     Theme,
     ThemeCompanyExposure,
     ThemeSignal,
@@ -50,6 +55,7 @@ from marketradar.evidence.independence import (
     EvidenceDescriptor,
     profile,
 )
+from marketradar.scoring.company_trend import rate_companies
 
 
 def _latest_scores(session: Session, theme_id: str) -> dict[str, Score]:
@@ -309,6 +315,99 @@ def theme_evidence(session: Session, slug: str, limit: int = 200) -> list[Eviden
         if len(out) >= limit:
             break
     return out
+
+
+def list_trending(
+    session: Session, limit: int = 25, include_headwinds: bool = True
+) -> list[TrendingCompanyOut]:
+    """Companies ranked by how strongly they are caught up in something that is changing.
+
+    The rating is recomputed on read rather than served from the last stored ``Score``. That
+    is a deliberate cost: a stored rating outlives the evidence it was computed from, and a
+    trending list that silently reflects a pipeline run from last week is exactly the kind of
+    stale number this system exists not to produce. ``persist=False`` keeps a GET from
+    writing.
+
+    Headwind rows are included by default and labelled, never dropped: a competitor of a
+    beneficiary is genuinely exposed to the theme, and hiding it would leave the reader to
+    assume every name on the list benefits.
+    """
+    ratings = rate_companies(session, as_of=datetime.now(tz=UTC), persist=False)
+    if not include_headwinds:
+        ratings = [r for r in ratings if r.direction == "tailwind"]
+
+    rows: list[TrendingCompanyOut] = []
+    for position, rating in enumerate(ratings[:limit], start=1):
+        result = rating.result
+        rows.append(
+            TrendingCompanyOut(
+                rank=position,
+                company_key=rating.company_key,
+                company_name=rating.company_name,
+                ticker=rating.ticker,
+                rating=rating.rating,
+                score=rating.score,
+                direction=rating.direction,
+                theme_slug=rating.theme_slug,
+                theme_name=rating.theme_name,
+                role=rating.role.value,
+                order_of_effect=rating.order_of_effect,
+                exposure_score=rating.exposure_score,
+                independent_clusters=rating.independent_clusters,
+                theme_count=rating.theme_count,
+                data_mode=rating.data_mode.value,
+                rationale=rating.rationale,
+                weight_coverage=result.weight_coverage if result else 0.0,
+                unavailable_components=list(result.unavailable_components) if result else [],
+                components=[
+                    ScoreComponentOut(
+                        key=c.key,
+                        label=c.label,
+                        available=c.available,
+                        raw_input=c.raw,
+                        normalized=c.normalized,
+                        weight=c.weight,
+                        effective_weight=c.effective_weight,
+                        contribution=c.contribution,
+                        explanation=c.explanation,
+                    )
+                    for c in (result.components if result else [])
+                ],
+            )
+        )
+    return rows
+
+
+def list_subjects(
+    session: Session, limit: int = 40, discovered_only: bool = False
+) -> list[SubjectOut]:
+    """What the corpus turned out to be about, most salient first.
+
+    This is the honest answer to "where did these themes come from?" — the subjects were
+    mined from the documents, so a reader can check that the system is tracking something
+    real rather than a vocabulary somebody typed in.
+    """
+    query = select(Subject).order_by(Subject.salience.desc()).limit(limit)
+    if discovered_only:
+        query = query.where(Subject.is_discovered.is_(True))
+    return [
+        SubjectOut(
+            key=row.key,
+            term=row.term,
+            label=row.label,
+            document_count=row.document_count,
+            cluster_count=row.cluster_count,
+            emergence=row.emergence,
+            specificity=row.specificity,
+            salience=row.salience,
+            is_discovered=row.is_discovered,
+            discovery_version=row.discovery_version,
+            data_mode=row.data_mode.value,
+            first_seen_at=row.first_seen_at,
+            last_seen_at=row.last_seen_at,
+        )
+        for row in session.scalars(query).all()
+    ]
 
 
 def latest_research_run(session: Session, theme: Theme) -> ResearchRun | None:

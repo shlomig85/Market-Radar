@@ -63,6 +63,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </span>
               <span className="label">emerging-theme intelligence</span>
             </Link>
+            <nav className="flex items-baseline gap-4 text-xs">
+              <Link href="/trending" className="text-muted hover:text-signal">
+                Trending stocks
+              </Link>
+              <Link href="/" className="text-muted hover:text-signal">
+                Themes
+              </Link>
+            </nav>
             <span className="ml-auto text-[10px] text-faint">
               research output · not investment advice
             </span>

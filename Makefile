@@ -8,7 +8,8 @@ PY := python3
 
 .DEFAULT_GOAL := help
 .PHONY: help up down logs setup db-up db-down migrate migration seed pipeline research show \
-        providers stats graph reset api web test test-unit test-integration test-e2e \
+        providers stats graph trending subjects feeds reset api web test test-unit \
+        test-integration test-e2e \
         lint typecheck check all docker-cli
 
 help: ## Show this help
@@ -63,6 +64,15 @@ stats: ## Row counts across the intelligence tables
 
 graph: ## Show knowledge-graph edges and the evidence each one rests on
 	cd $(BACKEND) && $(PY) -m marketradar.cli graph --limit $(or $(limit),40)
+
+trending: ## Companies ranked 0-10 on trend exposure
+	cd $(BACKEND) && $(PY) -m marketradar.cli trending --limit $(or $(limit),20)
+
+subjects: ## What the corpus turned out to be about
+	cd $(BACKEND) && $(PY) -m marketradar.cli subjects --limit $(or $(limit),30)
+
+feeds: ## Probe every configured public feed and report which are reachable
+	cd $(BACKEND) && $(PY) -m marketradar.cli feeds
 
 docker-cli: ## Run a CLI command in Docker against the stack's database: make docker-cli cmd="graph"
 	docker compose --profile cli run --rm cli python -m marketradar.cli $(or $(cmd),stats)

@@ -28,8 +28,10 @@ from marketradar.api.schemas import (
     ProviderHealthOut,
     ReportOut,
     ResearchTraceOut,
+    SubjectOut,
     ThemeDetailOut,
     ThemeSummaryOut,
+    TrendingCompanyOut,
 )
 from marketradar.config import get_settings
 from marketradar.db.session import get_sessionmaker
@@ -115,6 +117,28 @@ def create_app() -> FastAPI:
             )
             for h in registry.health_report()
         ]
+
+    @app.get("/trending", response_model=list[TrendingCompanyOut], tags=["trending"])
+    def trending(
+        limit: int = 25,
+        include_headwinds: bool = True,
+        session: Session = Depends(get_session),
+    ) -> list[TrendingCompanyOut]:
+        """Companies ranked 0-10 on how strongly they are caught up in something changing.
+
+        Every row carries its own decomposition, so the list can be taken apart into the
+        reasons for it rather than read as an oracle.
+        """
+        return services.list_trending(session, limit=limit, include_headwinds=include_headwinds)
+
+    @app.get("/subjects", response_model=list[SubjectOut], tags=["trending"])
+    def subjects(
+        limit: int = 40,
+        discovered_only: bool = False,
+        session: Session = Depends(get_session),
+    ) -> list[SubjectOut]:
+        """What the corpus turned out to be about, mined from the documents themselves."""
+        return services.list_subjects(session, limit=limit, discovered_only=discovered_only)
 
     @app.get("/themes", response_model=list[ThemeSummaryOut], tags=["themes"])
     def themes(session: Session = Depends(get_session)) -> list[ThemeSummaryOut]:

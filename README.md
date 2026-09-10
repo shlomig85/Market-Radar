@@ -31,15 +31,24 @@ Every arrow runs end to end and is covered by tests. Concretely, on the developm
   an explicit list of components that could not be computed.
 * A research run: 17 planned questions across 12 dimensions (counter-evidence mandatory),
   6 searches, 12 findings of which 4 contradict the thesis, stopped on saturation.
+* **Companies ranked 0-10** at `/trending`, each row expanding into the components that
+  produced the rating and the ones that could not be computed. A company the rising theme
+  works *against* is listed and labelled `headwind`, never dropped and never shown as if it
+  benefited.
 
 ## What is deliberately absent
 
-No authentication. No live data — outbound access to `sec.gov` is blocked in the development
-environment, so the pipeline runs on a **clearly labelled synthetic corpus with fictional
-issuers**. No market data, so valuation, mispricing and catalyst scoring are reported
-`UNAVAILABLE` and excluded from scores rather than estimated. One agent, not sixteen — no
+No authentication. No market data, so valuation, mispricing, catalyst scoring and price
+confirmation are reported `UNAVAILABLE` and excluded from scores rather than estimated. One
+agent, not sixteen — no
 Bull, Bear, Skeptic, Valuation, Catalyst, Risk or Investment Committee agent exists. No
 alerts, thesis monitoring, daily brief, backtesting or portfolio features.
+
+Live providers do exist and are verified — SEC company tickers, SEC EDGAR filings, and
+fourteen free public RSS/Atom feeds (see `docs/data-sources.md`). They are **off by default**:
+with nothing configured the pipeline runs on a clearly labelled synthetic corpus with
+fictional issuers, and every figure it produces is stamped `DEMO`. Turning them on is a
+matter of environment variables, documented under *Running against real sources* below.
 
 See the cycle report and `docs/implementation-plan.md` §12 for the full list.
 
@@ -62,7 +71,9 @@ about a real, tradeable security is unrepresentable rather than merely discourag
 make up          # or: ./scripts/start.sh
 ```
 
-Then open **http://localhost:3000**. The API and its OpenAPI docs are at
+Then open **http://localhost:3000/trending** — the ranked list of companies with a 0-10
+trend rating, where each row expands into the reasons for the rating. **http://localhost:3000**
+is the theme dashboard behind it. The API and its OpenAPI docs are at
 **http://localhost:8000/docs**. Stop with `make down`.
 
 `make up` starts PostgreSQL, applies migrations, seeds the fictional DEMO universe, runs the
@@ -106,16 +117,19 @@ make seed         # load the fictional DEMO reference universe
 make pipeline     # ingest -> events -> graph -> signals -> trends -> themes -> scores
 make research     # plan -> search -> findings -> report
 make api          # http://localhost:8000  (docs at /docs)
-make web          # http://localhost:3000
+make web          # http://localhost:3000/trending  (dashboard at /)
 ```
 
 `make all` runs the whole chain from an empty database to a rendered report.
 `make help` lists every target.
 
-To see companies ranked by how strongly they are caught up in something changing:
+To see companies ranked by how strongly they are caught up in something changing, open
+**http://localhost:3000/trending** — each row expands into the components that produced its
+rating, including the ones that could not be computed. The same list in the terminal:
 
 ```bash
-make docker-cli cmd="trending"
+make trending                       # locally
+make docker-cli cmd="trending"      # or against the Docker stack's database
 ```
 
 The rating is **0-10**, aggregated from theme trend, exposure strength and independent
@@ -131,7 +145,8 @@ already priced in.
 To see what the corpus turned out to be about — topics found, not declared:
 
 ```bash
-make docker-cli cmd="subjects"
+make subjects                       # locally
+make docker-cli cmd="subjects"      # or against the Docker stack's database
 ```
 
 `found` means discovered from the documents; `declared` means it came from the built-in
@@ -141,7 +156,8 @@ syndicated story cannot create one.
 To check which news sources are actually answering:
 
 ```bash
-make docker-cli cmd="feeds"         # or: cd backend && python -m marketradar.cli feeds
+make feeds                          # locally
+make docker-cli cmd="feeds"         # or against the Docker stack's database
 ```
 
 Every source is free and public — no API keys anywhere. The list is weighted toward
@@ -165,6 +181,39 @@ Every edge prints with the sentence that asserts it and the URL of the document 
 An edge that was seeded by hand rather than read out of a document prints
 `(no evidence — hand-entered)` — that label is the point, not an oversight.
 
+### Running against real sources
+
+Nothing above needs a network: with no providers configured the pipeline runs on the
+synthetic corpus and stamps every figure `DEMO`. Real sources are opt-in, free, and
+key-less — the full list and the reliability argument behind it is in
+[`docs/data-sources.md`](docs/data-sources.md).
+
+The SEC asks for a descriptive `User-Agent` with a contact address, and the feed fetcher
+sends one for the same reason. Both are refused rather than sent anonymously, so set them:
+
+```bash
+docker compose --profile cli run --rm \
+  -e MARKETRADAR_NEWS_PROVIDER=feeds \
+  -e MARKETRADAR_FEED_USER_AGENT="Market Radar your@email" \
+  -e MARKETRADAR_COMPANY_PROVIDER=sec \
+  -e MARKETRADAR_FILINGS_PROVIDER=sec_edgar \
+  -e MARKETRADAR_SEC_USER_AGENT="Market Radar your@email" \
+  cli python -m marketradar.cli pipeline --rebuild
+```
+
+Put the same five variables in `.env` to make them the default for the whole stack, API and
+web included.
+
+Two things to expect on the first real run. **Ratings can still say `DEMO`** if the synthetic
+corpus is in the same database — data mode propagates weakest-wins, which is the correct
+behaviour and not a bug; `make reset` before a run that should be purely live. And
+**a feed or two will fail** — they move, rot, and return 403 to unfamiliar clients. `make
+feeds` says which, and a failed feed is simply absent rather than compensated for.
+
+`MARKETRADAR_SUBJECT_EXCLUSIONS` takes a comma-separated list of terms that should never
+become subjects. Discovery removes site furniture by detecting sentences a publisher repeats
+verbatim, which catches most of it; this is the operator's veto for the rest.
+
 ### Troubleshooting
 
 | Symptom | Cause |
@@ -186,7 +235,7 @@ An edge that was seeded by hand rather than read out of a document prints
 ## Testing
 
 ```bash
-make test              # 337 tests
+make test              # 341 tests
 make test-unit         # no database required
 make test-e2e          # the full vertical slice
 ```
@@ -227,8 +276,9 @@ docs/           architecture, decisions, data model, scoring, pipeline, evaluati
 | --- | --- |
 | `docs/implementation-plan.md` | repository state, architecture, phases and dependencies |
 | `docs/architecture.md` | layering, pipeline, provenance, data modes, security posture |
-| `docs/decision-log.md` | 22 ADRs — what was decided, what was rejected, what it costs |
+| `docs/decision-log.md` | 24 ADRs — what was decided, what was rejected, what it costs |
 | `docs/data-model.md` | every table and the conventions behind them |
+| `docs/data-sources.md` | every free public source read, and why it can be trusted |
 | `docs/scoring-model.md` | weights, formulas, and the calibration debt |
 | `docs/research-pipeline.md` | the deterministic pipeline and the research loop |
 | `docs/agent-architecture.md` | agent contract, budgets, traces, injection posture |

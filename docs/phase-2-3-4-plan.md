@@ -461,3 +461,45 @@ measure, so nothing is called furniture.
 The ratings above read `DEMO` because the synthetic corpus was ingested alongside the live
 one. Every row is labelled correctly and nothing is mislabelled, but a pure-LIVE run needs
 the fixture providers switched off.
+
+---
+
+## 15. The screen the product is for (2026-09-10)
+
+Until now the answer to "where do I see the trending stocks?" was a CLI command. The rating
+existed, the reasoning behind it existed, and neither was reachable from the browser — the
+web UI showed themes only. That is the wrong shape for a product whose stated purpose is to
+*present* trending stocks with a rating.
+
+**What was added.**
+
+* `GET /trending` — companies ranked 0-10, each row carrying its full score decomposition,
+  its weight coverage and the list of components that could not be computed.
+* `GET /subjects` — what the corpus turned out to be about, with the independent-cluster
+  count that qualified each term and the `is_discovered` flag that separates a topic the
+  system found from one the lexicon declared.
+* `/trending` in the web UI — the ranked list, each row expanding into the components that
+  produced it, the position on the value chain, the independent cluster count, and a link
+  into the theme behind it. Below it, the discovered subjects as chips carrying their
+  cluster counts.
+* The dashboard now leads with the top eight names; the header carries a nav.
+
+**Two decisions are recorded as ADRs rather than left in the code.** The endpoint recomputes
+on read instead of serving stored `Score` rows (ADR-023) — this project has twice shipped a
+fix that never reached what the reader saw, and a trending list is the worst possible place
+to serve a stale number. And headwind companies are shown and labelled rather than filtered
+(ADR-024): that a rising theme is bad news for a named company is often the more actionable
+half of the observation.
+
+**The expandable row is plain `<details>`.** No client component, no JavaScript. The page is
+a server component that renders the reasoning inline; the browser does the toggling. This is
+not minimalism for its own sake — every number on the page comes from the response that
+rendered it, so there is no second code path that could disagree with the first about what
+the rating is.
+
+### Still open
+
+Unchanged from §14: ratings read `DEMO` while the synthetic corpus shares the database with
+the live one. `make reset` before a live run is the workaround; the README now says so under
+*Running against real sources*. Nothing is mislabelled — weakest-wins is doing exactly what
+it should — but a purely live run has not yet been observed end to end.

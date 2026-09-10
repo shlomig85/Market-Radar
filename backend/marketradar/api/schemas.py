@@ -84,6 +84,58 @@ class ExposureOut(BaseModel):
     data_mode: str
 
 
+class TrendingCompanyOut(BaseModel):
+    """One row of the ranked trending list.
+
+    ``rating`` is the 0-10 figure a reader acts on; ``score`` is the stored 0-100 value it
+    was rounded from. Both are sent so the UI never has to re-derive one from the other and
+    quietly disagree with the database about what the rating is.
+    """
+
+    rank: int
+    company_key: str
+    company_name: str
+    ticker: str | None
+    rating: float
+    score: float
+    direction: str
+    theme_slug: str
+    theme_name: str
+    role: str
+    order_of_effect: int
+    exposure_score: float
+    independent_clusters: int
+    theme_count: int
+    data_mode: str
+    rationale: str
+    weight_coverage: float
+    unavailable_components: list[str]
+    components: list[ScoreComponentOut]
+
+
+class SubjectOut(BaseModel):
+    """A topic the corpus turned out to be about.
+
+    ``is_discovered`` is on the wire because the difference between a topic the system found
+    and one somebody typed into the lexicon is the difference between discovery and
+    monitoring, and the UI must be able to say which it is looking at.
+    """
+
+    key: str
+    term: str
+    label: str | None
+    document_count: int
+    cluster_count: int
+    emergence: float
+    specificity: float
+    salience: float
+    is_discovered: bool
+    discovery_version: str
+    data_mode: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+
+
 class ThemeSummaryOut(BaseModel):
     slug: str
     name: str

@@ -560,3 +560,60 @@ silently costs a real subject. Both are single constants at the top of the modul
 conditions buried in the logic, so the judgement is inspectable. A publisher whose name is also a
 genuine topic would be excluded outright; none of the current sources has that problem.
 
+
+---
+
+## ADR-023 — The trending list recomputes on read rather than serving the last stored rating
+
+**Context.** Every company rating is persisted as a `Score` row when the pipeline runs, so
+`GET /trending` could simply read the newest rows and sort them. It does not: it calls
+`rate_companies(..., persist=False)` on every request.
+
+**Decision.** Recompute. The endpoint reads themes, exposures and stored theme scores from the
+database and aggregates them at request time, writing nothing.
+
+**Alternatives.** (a) Serve the stored `Score` rows. (b) Serve stored rows and show the
+`computed_at` timestamp next to them. (c) Recompute.
+
+**Why.** (a) is the defect this project has already been bitten by twice — derived data
+outliving the evidence it was derived from, and a fix that never reaches what the reader sees
+(the `created=0 skipped=72` incident, ADR-017). A stored rating is a claim about the corpus as
+it stood at some past moment, and a trending list that silently reflects last week's run is
+precisely the kind of number this system exists not to produce. (b) is honest but asks the
+reader to do the reasoning: a timestamp does not tell them whether anything has changed since.
+(c) costs a few hundred milliseconds of aggregation over data that is already in memory, and
+the aggregation itself introduces no measurement — every input was computed and stored by an
+earlier stage with its own evidence trail.
+
+**Cost.** The endpoint is O(exposures) per request rather than O(1), so it will need a cache
+once the corpus is large enough for that to matter. The cache key must be the pipeline run,
+not a clock — a time-based TTL would reintroduce exactly the staleness this avoids. The stored
+`Score` rows remain the historical record: they are what makes "what did we think in March?"
+answerable, which is a different question from "what do we think now?" and must not be served
+by the same code path.
+
+---
+
+## ADR-024 — Headwind companies are shown and labelled, never filtered out
+
+**Context.** A rising theme does not help every company exposed to it. A competitor of a
+beneficiary, or the maker of a substitute being displaced, sits on the same value chain and
+scores highly on the same exposure machinery.
+
+**Decision.** They appear in the ranked list by default, coloured differently and labelled
+`headwind`, with the tooltip stating that the theme works *against* them. The API defaults to
+`include_headwinds=true`; the flag exists but the default is to show.
+
+**Alternatives.** (a) Filter them out of "trending". (b) Rate them and invert the sign.
+(c) Show them, labelled.
+
+**Why.** (a) hides real information: the fact that a rising theme is bad news for a specific
+company is often the more actionable half of the observation, and a reader who cannot see it
+will infer that the list is a buy list. (b) asserts something not measured — that the harm is
+proportional to the benefit, which no component here estimates. (c) reports what was actually
+computed: this company is strongly exposed, and the exposure runs against it.
+
+**Cost.** A reader who skims only the numbers can misread a high headwind rating as a
+recommendation. The colour, the direction column, the row label and the panel footnote are
+four separate places where the distinction is stated, which is the mitigation available
+without either hiding data or inventing a number.

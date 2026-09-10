@@ -14,7 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const themes = await api.themes();
+  const [themes, trending] = await Promise.all([api.themes(), api.trending(8)]);
 
   if (!themes) {
     return (
@@ -43,6 +43,48 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {trending && trending.length > 0 && (
+        <Panel
+          title="Trending stocks"
+          subtitle="Companies rated 0-10 on how strongly they are caught up in something that is changing"
+          right={
+            <Link href="/trending" className="text-xs text-signal hover:underline">
+              Full list, with the reasons &rarr;
+            </Link>
+          }
+        >
+          <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+            {trending.map((company) => (
+              <Link
+                key={company.company_key}
+                href={`/themes/${company.theme_slug}`}
+                className="flex items-baseline gap-3 border-b border-line/50 py-2 last:border-0 hover:bg-raised/60"
+              >
+                <span className="numeric w-14 text-sm text-ink">
+                  {company.ticker ?? "\u2014"}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm text-muted">
+                  {company.company_name}
+                  <DataModeBadge mode={company.data_mode} />
+                </span>
+                <span
+                  className={`numeric text-sm font-semibold ${
+                    company.direction === "headwind" ? "text-against" : "text-signal"
+                  }`}
+                  title={
+                    company.direction === "headwind"
+                      ? `The rise of ${company.theme_name} works AGAINST this company`
+                      : `Exposed to ${company.theme_name}`
+                  }
+                >
+                  {company.rating.toFixed(1)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Panel>
+      )}
+
       <div>
         <h1 className="text-lg font-semibold tracking-wide">What changed</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted">
