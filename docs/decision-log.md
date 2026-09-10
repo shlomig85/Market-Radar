@@ -482,3 +482,44 @@ not built. Without market data, price confirmation is never available, so in pra
 runs on four components and cannot tell an unnoticed move from one already priced in. And because
 feeds carry no archive, acceleration is weak until a corpus accumulates: early ratings measure a
 short history and should be read as provisional.
+
+---
+
+## ADR-021 — Boilerplate is found by verbatim repetition, not by proportion
+
+**Decision.** Before any candidate term is generated, subject discovery identifies sentences that
+appear **verbatim in four or more documents** and removes them from every document. Sentences under
+five words are exempt. This replaces the per-source saturation ratios, which are deleted from the
+decision path.
+
+**Alternatives.** (a) A corpus-wide document-frequency ceiling. (b) Per-publisher saturation. (c)
+Per-publisher saturation plus a cross-publisher contrast. (d) A hand-maintained list of known
+boilerplate phrases.
+
+**Why.** (a), (b) and (c) were each tried against live data and each failed, and the reason is the
+same every time: **proportion cannot separate a footer from a topic.** A publisher's footer sat in
+roughly 13% of its own documents — article extraction succeeds on some page templates and not others
+— so no saturation threshold reached it without also rejecting genuine topics. (a) could not see it
+at all, since one site's furniture is a small share of a multi-publisher corpus. (c) added a
+contrast between publishers, which a corpus dominated by one publisher does not have. (d) does not
+generalise past the sites someone thought of.
+
+The tell in the live output was that thirty reported "subjects" shared *identical* statistics — same
+cluster count, same emergence, same salience. That is not thirty topics; it is one block of text.
+Verbatim repetition is the property that block actually has, and it depends on neither how much a
+publisher wrote nor how many publishers exist. Two independently written articles do not share a
+sentence; a footer is the same sentence every time. Syndicated copy does repeat, but ancestry
+clustering already collapses it to a single confirmation, so removing it costs nothing that was
+going to count.
+
+**Cost.** A genuinely repeated sentence in real editorial content is removed — a standard disclosure
+in every filing from one issuer, say. That text is not lost from the corpus, only from *subject
+candidacy*, and evidence extraction still reads it. The four-document threshold and five-word floor
+are reasoned, not calibrated: too low and a common phrase disappears, too high and a footer on three
+documents survives. Both are constants at the top of the module rather than buried in the logic.
+
+**Also.** Three test fixtures had to be rewritten because they repeated one sentence across every
+document. They were correctly identified as boilerplate — which is the clearest evidence the rule
+does what it claims, and a reminder that synthetic corpora are unrealistically uniform in exactly
+the way that matters here.
+

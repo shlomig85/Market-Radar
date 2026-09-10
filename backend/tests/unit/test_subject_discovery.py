@@ -75,7 +75,12 @@ def test_an_echo_chamber_cannot_mint_a_subject() -> None:
     independent origins, any syndicated story becomes a discovered 'theme'.
     """
     echo = [
-        obs(index, "Quantum annealing breakthrough claimed by a startup.", "one-cluster", 6)
+        obs(
+            index,
+            f"Quantum annealing breakthrough claimed by a startup, report {index} says.",
+            "one-cluster",
+            6,
+        )
         for index in range(10, 20)
     ]
     assert not any("quantum" in term for term in terms(discover_subjects(echo, as_of=AS_OF)))
@@ -136,7 +141,7 @@ def test_an_emerging_subject_outranks_a_long_standing_one() -> None:
         corpus.append(
             obs(
                 index,
-                "Copper wiring remains standard in distribution networks.",
+                f"Copper wiring remains standard in distribution network {index}.",
                 f"bg{index}",
                 index * 10,
             )
@@ -146,7 +151,7 @@ def test_an_emerging_subject_outranks_a_long_standing_one() -> None:
         corpus.append(
             obs(
                 index,
-                "Solid state batteries are entering pilot production lines.",
+                f"Solid state batteries are entering pilot production line {index}.",
                 f"new{index}",
                 3,
             )
@@ -163,7 +168,7 @@ def test_an_emerging_subject_outranks_a_long_standing_one() -> None:
 def test_unclustered_documents_count_as_separate_origins() -> None:
     """Lumping every unclustered document together would understate independence to one."""
     loose = [
-        obs(index, "Rare earth separation capacity is expanding.", None, index)
+        obs(index, f"Rare earth separation is expanding at facility {index}.", None, index)
         for index in range(1, 6)
     ]
     assert any("rare earth" in term for term in terms(discover_subjects(loose, as_of=AS_OF)))
@@ -248,7 +253,10 @@ def test_a_publishers_own_furniture_never_becomes_a_subject() -> None:
         corpus.append(
             SubjectObservation(
                 document_id=f"ars{index}",
-                text=f"Report {index} on solid state batteries entering production. {footer}",
+                text=(
+                    f"Report {index} on solid state batteries entering production line "
+                    f"{index} this period. {footer}"
+                ),
                 published_at=AS_OF - timedelta(days=index + 1),
                 cluster_id=f"ars-c{index}",
                 source_key="arstechnica",
@@ -260,7 +268,7 @@ def test_a_publishers_own_furniture_never_becomes_a_subject() -> None:
         corpus.append(
             SubjectObservation(
                 document_id=f"journal{index}",
-                text="Solid state batteries are moving into pilot production lines.",
+                text=f"Solid state batteries are moving into pilot line {index} now.",
                 published_at=AS_OF - timedelta(days=index + 1),
                 cluster_id=f"journal-c{index}",
                 source_key="journal",
@@ -278,7 +286,7 @@ def test_furniture_detection_needs_enough_documents_from_that_source() -> None:
     corpus = [
         SubjectObservation(
             document_id=f"d{index}",
-            text="Perovskite tandem cells reached a new efficiency milestone.",
+            text=f"Perovskite tandem cells reached efficiency milestone {index}.",
             published_at=AS_OF - timedelta(days=index + 1),
             cluster_id=f"c{index}",
             source_key="journal",
@@ -286,3 +294,118 @@ def test_furniture_detection_needs_enough_documents_from_that_source() -> None:
         for index in range(3)
     ]
     assert any("perovskite" in term for term in terms(discover_subjects(corpus, as_of=AS_OF)))
+
+
+# ------------------------- the real strings, from a real run (2026-09-10)
+#: CNBC's promotional block and IEEE Spectrum's navigation/footer, verbatim as they were
+#: reported as "discovered subjects".
+CNBC_PROMO = (
+    "Make CNBC your preferred source on Google and never miss a trusted name in business "
+    "news coverage."
+)
+IEEE_FOOTER = (
+    "IEEE is the largest technical professional organization dedicated to advancing "
+    "technology for humanity. Contact support accessibility nondiscrimination policy."
+)
+
+
+def _varied(index: int, topic: str) -> str:
+    """Real articles about one topic do not repeat sentences verbatim; fixtures must not."""
+    verbs = ["expanded sharply", "drew new commitments", "advanced again", "gained ground"]
+    places = ["in Texas", "across Europe", "among utilities", "at hyperscalers"]
+    # The index is in the text so no two documents share a sentence verbatim. Real articles
+    # do not repeat each other word for word, and a fixture that does is indistinguishable
+    # from boilerplate — correctly so.
+    return (
+        f"Deployment of {topic} {verbs[index % len(verbs)]} "
+        f"{places[(index // 4) % len(places)]} during period {index}."
+    )
+
+
+def test_boilerplate_is_caught_by_repetition_not_by_proportion() -> None:
+    """Proportion could not work, and this is why.
+
+    Thirty reported "subjects" shared identical statistics — same cluster count, same
+    emergence, same salience — because they were one repeated block of text, not thirty
+    topics. But that block sat in roughly 13% of its publisher's documents, since article
+    extraction succeeds on some page templates and not others. No saturation threshold
+    reaches 13% without also rejecting real topics.
+
+    Verbatim repetition does not depend on how much a publisher wrote, or on how many
+    publishers there are.
+    """
+    topics = ["photonic interconnect", "grid storage", "solid state battery"]
+    corpus = []
+    for index in range(200):
+        body = _varied(index, topics[index % 3])
+        if index < 26:  # the promo block, on 13% of this publisher's output
+            body += f" {CNBC_PROMO}"
+        corpus.append(
+            SubjectObservation(
+                f"cnbc{index}",
+                body,
+                AS_OF - timedelta(days=index % 25 + 1),
+                f"cn{index}",
+                "cnbc",
+            )
+        )
+    for index in range(29):
+        corpus.append(
+            SubjectObservation(
+                f"ieee{index}",
+                f"{_varied(index + 500, topics[index % 3])} {IEEE_FOOTER}",
+                AS_OF - timedelta(days=index % 25 + 1),
+                f"ie{index}",
+                "ieee",
+            )
+        )
+
+    found = terms(discover_subjects(corpus, as_of=AS_OF, limit=20))
+    for phrase in (
+        "cnbc",
+        "preferred source",
+        "trusted name",
+        "never miss",
+        "accessibility nondiscrimination",
+        "professional organization",
+        "contact support",
+    ):
+        assert not any(phrase in term for term in found), phrase
+    # The topics buried under that boilerplate must still come through. Matched loosely:
+    # this fixture's rigid sentence template glues a verb onto every topic ("solid state
+    # battery advanced"), which real prose does not do — the point here is that the topic
+    # survives at all, not the exact phrase it survives as.
+    assert any("battery" in term for term in found), sorted(found)
+    assert any("grid storage" in term or "photonic" in term for term in found), sorted(found)
+
+
+def test_a_sentence_repeated_across_documents_is_stripped() -> None:
+    from marketradar.subjects.discovery import repeated_sentences, strip_boilerplate
+
+    corpus = [
+        SubjectObservation(
+            f"d{index}",
+            f"{_varied(index, 'grid storage')} {CNBC_PROMO}",
+            AS_OF - timedelta(days=index + 1),
+            f"c{index}",
+            "wire",
+        )
+        for index in range(5)
+    ]
+    boilerplate = repeated_sentences(corpus)
+    assert boilerplate, "a sentence in all five documents is boilerplate"
+
+    cleaned = strip_boilerplate(corpus[0].text, boilerplate)
+    assert "preferred source" not in cleaned.lower()
+    assert "grid storage" in cleaned.lower(), "the article itself must survive"
+
+
+def test_a_short_repeated_sentence_is_not_treated_as_boilerplate() -> None:
+    """"Shares fell." recurs legitimately; a long sentence recurring does not."""
+    from marketradar.subjects.discovery import repeated_sentences
+
+    corpus = [
+        SubjectObservation(f"d{index}", "Shares fell.", AS_OF, f"c{index}", "wire")
+        for index in range(8)
+    ]
+    assert repeated_sentences(corpus) == frozenset()

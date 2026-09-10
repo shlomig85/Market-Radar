@@ -350,6 +350,65 @@ def _is_subsumed(term: str, clusters: int, kept: dict[str, int]) -> bool:
     return False
 
 
+#: A sentence repeated verbatim in at least this many documents is not editorial content.
+#: Independent journalists do not produce identical sentences; navigation, promo blocks,
+#: affiliate disclosures and legal footers are identical by construction.
+BOILERPLATE_DOCUMENTS = 4
+
+#: ...and it must be long enough that repetition means something. "Shares fell." recurs
+#: legitimately; a twelve-word sentence recurring across four documents does not.
+BOILERPLATE_MIN_WORDS = 5
+
+
+def repeated_sentences(
+    observations: list[SubjectObservation],
+    min_documents: int = BOILERPLATE_DOCUMENTS,
+) -> frozenset[str]:
+    """Sentences appearing verbatim across several documents: the boilerplate.
+
+    This replaces proportion-based furniture detection, which could not work. The tell in
+    the live data was that thirty "subjects" shared *identical* statistics — same cluster
+    count, same emergence, same salience — because they are one repeated block of text, not
+    thirty topics. But that block sat in only ~13% of its publisher's documents (extraction
+    succeeds on some page templates and not others), so no saturation threshold could reach
+    it without also rejecting real topics.
+
+    Verbatim repetition is the signal that does not depend on how much a publisher wrote or
+    on how many publishers there are. Two independently written articles do not share a
+    sentence; a footer is the same sentence every time. Syndicated copy does repeat, but
+    ancestry clustering already collapses it to one confirmation, so removing it here costs
+    nothing that was going to count.
+    """
+    counts: defaultdict[str, set[str]] = defaultdict(set)
+    for observation in observations:
+        for sentence in _boilerplate_candidates(observation.text):
+            counts[sentence].add(observation.document_id)
+    return frozenset(
+        sentence for sentence, documents in counts.items() if len(documents) >= min_documents
+    )
+
+
+def _boilerplate_candidates(text: str) -> set[str]:
+    """Normalised sentences from a document, long enough for repetition to be meaningful."""
+    found: set[str] = set()
+    for raw in _SENTENCE_SPLIT.split(text):
+        sentence = " ".join(raw.lower().split())
+        if len(sentence.split()) >= BOILERPLATE_MIN_WORDS:
+            found.add(sentence)
+    return found
+
+
+def strip_boilerplate(text: str, boilerplate: frozenset[str]) -> str:
+    """Remove known boilerplate sentences, keeping everything else intact."""
+    if not boilerplate:
+        return text
+    kept = []
+    for raw in _SENTENCE_SPLIT.split(text):
+        if " ".join(raw.lower().split()) not in boilerplate:
+            kept.append(raw)
+    return ". ".join(kept)
+
+
 def _is_publisher_furniture(
     by_source: dict[str, set[str]], source_totals: dict[str, int]
 ) -> bool:
@@ -430,13 +489,19 @@ def discover_subjects(
     last_seen: dict[str, datetime] = {}
     examples: defaultdict[str, list[str]] = defaultdict(list)
 
+    # Boilerplate is identified across the whole corpus first, then removed from every
+    # document before a single candidate term is generated. Filtering terms afterwards was
+    # the mistake: by then the footer is indistinguishable from a topic except by
+    # proportion, and proportion does not separate them.
+    boilerplate = repeated_sentences(visible)
+
     for observation in visible:
         # A document with no cluster is its own origin rather than being lumped with every
         # other unclustered document, which would understate independence to zero.
         cluster = observation.cluster_id or f"doc:{observation.document_id}"
         source = observation.source_key or "unknown"
         source_totals[source] += 1
-        for term in candidate_terms(observation.text):
+        for term in candidate_terms(strip_boilerplate(observation.text, boilerplate)):
             documents[term].add(observation.document_id)
             per_source[term][source].add(observation.document_id)
             clusters[term].add(cluster)
@@ -507,6 +572,7 @@ def discover_subjects(
 __all__ = [
     "DISCOVERY_VERSION",
     "MAX_DOCUMENT_RATIO",
+    "BOILERPLATE_DOCUMENTS",
     "MIN_CLUSTERS",
     "MAX_SOURCE_RATIO",
     "PREDICATE_WORDS",
@@ -516,6 +582,8 @@ __all__ = [
     "SubjectObservation",
     "candidate_terms",
     "discover_subjects",
+    "repeated_sentences",
+    "strip_boilerplate",
     "normalise_term",
     "subject_key_for",
 ]
